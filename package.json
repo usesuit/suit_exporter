@@ -1,0 +1,18 @@
+{
+  "name": "da-export",
+  "version": "1.0.0",
+  "description": "Container-based scene graph export (Bring Your Own Scene Graph).",
+  "main": "main.js",
+  "generator-core-version": "~3",
+  "repository": {
+  },
+  "license": "Public Domain",
+  "readmeFilename": "README.md",
+  "scripts": {
+  },
+  "dependencies": {
+    "q": "~1.0"
+  },
+  "devDependencies": {
+  }
+}
