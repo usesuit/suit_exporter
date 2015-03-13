@@ -38,6 +38,11 @@
         _documentManager = null,
         _stateManager = null;
 
+    var _assetManagers = {};
+    
+    var _waitingDocuments = {},
+        _canceledDocuments = {};
+
     /*********** INIT ***********/
 
     function init(generator, config, logger) {
@@ -124,6 +129,8 @@
             if (_canceledDocuments.hasOwnProperty(id)) {
                 delete _canceledDocuments[id];
             } else {
+                console.log("TODO: ASSET MANAGER");
+                return;
                 if (!_assetManagers.hasOwnProperty(id)) {
                     _assetManagers[id] = new AssetManager(_generator, _config, _logger, document, _renderManager);
 
