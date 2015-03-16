@@ -27,8 +27,10 @@
     "use strict";
     
     var DocumentManager = require("./lib/documentmanager"),
-        StateManager = require('./lib/statemanager');
-
+        StateManager = require('./lib/statemanager'),
+        RenderManager = require("./lib/rendermanager"),
+        AssetManager = require('./lib/assetmanager');
+        
     var PLUGIN_ID = require("./package.json").name;
     
     var _generator = null,
@@ -36,7 +38,8 @@
         _config = null,
         _logger = null,
         _documentManager = null,
-        _stateManager = null;
+        _stateManager = null,
+        _renderManager = null;
 
     var _assetManagers = {};
     
@@ -59,6 +62,8 @@
         _stateManager = new StateManager(generator, config, logger, _documentManager);
         _stateManager.on("enabled", startAssetGeneration);
         _stateManager.on("disabled", pauseAssetGeneration);
+        
+        _renderManager = new RenderManager(generator, config, logger);
 
         function initLater() {
             
@@ -129,8 +134,6 @@
             if (_canceledDocuments.hasOwnProperty(id)) {
                 delete _canceledDocuments[id];
             } else {
-                console.log("TODO: ASSET MANAGER");
-                return;
                 if (!_assetManagers.hasOwnProperty(id)) {
                     _assetManagers[id] = new AssetManager(_generator, _config, _logger, document, _renderManager);
 
@@ -147,13 +150,7 @@
         stopAssetGeneration(id);
         startAssetGeneration(id);
     }
-    /**
-     * Disable asset generation for the given Document ID, halting any asset
-     * rending in progress.
-     * 
-     * @private
-     * @param {!number} id The document ID for which asset generation should be disabled.
-     */
+
     function pauseAssetGeneration(id) {
         if (_waitingDocuments.hasOwnProperty(id)) {
             _canceledDocuments[id] = true;
@@ -162,18 +159,19 @@
         }
     }
 
-    /**
-     * Completely stop asset generation for the given Document ID and collect
-     * its AssetManager instance.
-     * 
-     * @private
-     * @param {!number} id The document ID for which asset generation should be disabled.
-     */
     function stopAssetGeneration(id) {
         pauseAssetGeneration(id);
 
         if (_assetManagers.hasOwnProperty(id)) {
             delete _assetManagers[id];
+        }
+    }
+    
+    function handleFileChange(id, change) {
+        // If the filename changed but the saved state didn't change, then the file must have been renamed
+        if (change.previous && !change.hasOwnProperty("previousSaved")) {
+            _stopAssetGeneration(id);
+            _stateManager.deactivate(id);
         }
     }
     
