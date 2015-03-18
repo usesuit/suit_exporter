@@ -66,8 +66,6 @@
         _renderManager = new RenderManager(generator, config, logger);
 
         function initLater() {
-            
-          console.log("NEXT TICK");
           
           // _generator.onPhotoshopEvent("currentDocumentChanged", handleCurrentDocumentChanged);
           // _generator.onPhotoshopEvent("imageChanged", handleImageChanged);
