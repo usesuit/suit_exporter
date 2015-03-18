@@ -2,6 +2,12 @@ Bring Your Own Scene Graph
 ===============================================
 This plugin for Adobe generator is meant as a UI placement tool for game development. We're currently using it to build games in SpriteKit and Unity (with Futile), but theoretically this data could be used in any engine with a node-based scene graph.
 
+Install
+===============================================
+TODO: how to install
+
+Usage
+===============================================
 Unlike the default image exporter plugin where you must name each layer with .png (or .jpg or whatever) to export it, we assume that you want every LAYER in the PSD to be exported as an individual image. We work with PNGs, so I've removed all other options to simplify naming. 
 
 To prevent a layer from being exported (or the contents of a group), simply start the name of the layer/group with "guide".
