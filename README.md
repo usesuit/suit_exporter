@@ -40,7 +40,7 @@ Supported Nodes (Photoshop Layers)
 
 Runtime Notes
 ===============================================
-The data that comes out of this plugin is meant to be framework and engine-independent, which means YOU the programmer is responsible for providing a scene graph.
+The data that comes out of this plugin is meant to be framework and engine-independent, which means YOU the programmer are responsible for providing a scene graph.
 
 In our own implementations, we've found it convenient to have some "magic" extra UI objects that get automagically wired up. You are NOT REQUIRED to use these naming conventions (you can simply use "container_", "text_", and the default to export only containers/labels/images.
 
