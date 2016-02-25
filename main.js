@@ -71,12 +71,9 @@
           _renderManager.on("idle", onIdle);
           
           _generator.addMenuItem(MENU_ID, MENU_LABEL, true, false);
-          // menuPromise = this._generator.addMenuItem(MENU_ID, MENU_LABEL, false, false)
-            // .finally(processNextMenuOperation);
-
           _documentManager.on("activeDocumentChanged", handleActiveDocumentChanged);
           _generator.onPhotoshopEvent("generatorMenuChanged", handleMenuClicked);
-            
+          
         }
         
         process.nextTick(initLater);
@@ -84,40 +81,44 @@
     
     function handleActiveDocumentChanged(id) 
     {
+        console.log("ACTIVE DOCUMENT: " + id);
         activeDocumentId = id;
     };
     
     function handleMenuClicked(event)
     {
         var menu = event.generatorMenuChanged;
-        if (!menu) {
+        if (!menu) 
+        {
             return;
         }
 
         // Ignore changes to other menus
-        if (menu.name !== MENU_ID) {
+        if (menu.name !== MENU_ID) 
+        {
             return;
         }
 
-        if (activeDocumentId === null) {
+        if (activeDocumentId === null) 
+        {
             _logger.warn("Ignoring menu click without a current document.");
             return;
         }
 
-        //TODO: EXPORT
-        _logger.warn("TODO: EXPORT");
+        _logger.warn("STARTING ASSET GENERATION FOR " + activeDocumentId);
         startAssetGeneration(activeDocumentId);
     }
 
     /*********** EVENTS ***********/
     
     function startAssetGeneration(id) {
-        if (_waitingDocuments.hasOwnProperty(id)) {
+        if (_waitingDocuments.hasOwnProperty(id)) 
+        {
+            print("already waiting on a document");
             return;
         }
 
         var documentPromise = _documentManager.getDocument(id);
-        
         _waitingDocuments[id] = documentPromise;
 
         documentPromise.done(function (document) {
@@ -126,13 +127,9 @@
             if (_canceledDocuments.hasOwnProperty(id)) {
                 delete _canceledDocuments[id];
             } else {
-                if (!_assetManagers.hasOwnProperty(id)) {
-                    _assetManagers[id] = new AssetManager(_generator, _config, _logger, document, _renderManager);
-
-                    document.on("closed", stopAssetGeneration.bind(undefined, id));
-                    document.on("end", restartAssetGeneration.bind(undefined, id));
-                    document.on("file", handleFileChange.bind(undefined, id));
-                }
+                //don't cache asset manager -- make a new one each time we hit export
+                _assetManagers[id] = new AssetManager(_generator, _config, _logger, document, _renderManager);
+                document.on("closed", stopAssetGeneration.bind(undefined, id));
                 _assetManagers[id].start();
             }
         });
@@ -140,6 +137,11 @@
     
     function onIdle()
     {
+      if(_assetManagers.hasOwnProperty(activeDocumentId))
+      {
+        _assetManagers[activeDocumentId].updateDAMetadata();
+      }
+      
       stopAssetGeneration(activeDocumentId);
       sendJavascript("alert('EXPORT COMPLETE');");
     }
@@ -165,12 +167,7 @@
         }
     }
     
-    function handleFileChange(id, change) {
-        // If the filename changed but the saved state didn't change, then the file must have been renamed
-        if (change.previous && !change.hasOwnProperty("previousSaved")) {
-            _stopAssetGeneration(id);
-        }
-    }
+
 
     /*********** HELPERS ***********/
 
