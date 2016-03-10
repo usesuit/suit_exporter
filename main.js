@@ -26,9 +26,13 @@
 (function () {
     "use strict";
     
-    var PLUGIN_ID = require("./package.json").name,
-        MENU_ID = PLUGIN_ID,
-        MENU_LABEL = "$$$/JavaScripts/Generator/DAExport/Menu=DA Export";
+    var PLUGIN_ID = require("./package.json").name;
+
+    var SK_MENU_ID = PLUGIN_ID;
+    var SK_MENU_LABEL = "$$$/JavaScripts/Generator/DAExportSpriteKit/Menu=DA Export for SpriteKit";
+    
+    var NATIVE_MENU_ID = PLUGIN_ID + "_native";
+    var NATIVE_MENU_LABEL = "$$$/JavaScripts/Generator/DAExportNative/Menu=DA Export for Native UI";
     
     
     var DocumentManager = require("./lib/documentmanager"),
@@ -70,7 +74,9 @@
           
           _renderManager.on("idle", onIdle);
           
-          _generator.addMenuItem(MENU_ID, MENU_LABEL, true, false);
+          _generator.addMenuItem(SK_MENU_ID, SK_MENU_LABEL, true, false);
+          _generator.addMenuItem(NATIVE_MENU_ID, NATIVE_MENU_LABEL, true, false);
+                    
           _documentManager.on("activeDocumentChanged", handleActiveDocumentChanged);
           _generator.onPhotoshopEvent("generatorMenuChanged", handleMenuClicked);
           
@@ -85,6 +91,7 @@
         activeDocumentId = id;
     };
     
+    var lastMenuClicked = "spritekit";
     function handleMenuClicked(event)
     {
         var menu = event.generatorMenuChanged;
@@ -93,16 +100,20 @@
             return;
         }
 
-        // Ignore changes to other menus
-        if (menu.name !== MENU_ID) 
-        {
-            return;
-        }
-
         if (activeDocumentId === null) 
         {
             _logger.warn("Ignoring menu click without a current document.");
             return;
+        }
+        
+        // Ignore changes to other menus
+        if (menu.name == SK_MENU_ID) 
+        {
+          lastMenuClicked = "spritekit";
+        }else if(menu.name == NATIVE_MENU_ID){
+          lastMenuClicked = "native_ui"; 
+        }else{
+          return;
         }
 
         _logger.warn("STARTING ASSET GENERATION FOR " + activeDocumentId);
@@ -139,11 +150,11 @@
     {
       if(_assetManagers.hasOwnProperty(activeDocumentId))
       {
-        _assetManagers[activeDocumentId].updateDAMetadata();
+        _assetManagers[activeDocumentId].updateDAMetadata(lastMenuClicked);
       }
       
       stopAssetGeneration(activeDocumentId);
-      sendJavascript("alert('EXPORT COMPLETE');");
+      sendJavascript("alert('EXPORT COMPLETE: " + lastMenuClicked + "');");
     }
 
     function restartAssetGeneration(id) {
