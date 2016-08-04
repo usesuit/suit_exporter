@@ -63,5 +63,6 @@ The "extras" that we implement in our own games are:
 
 Implementations
 ===============================================
-TODO: implement this stuff
+* SpriteKit/Native iOS (in Swift) - [https://github.com/DragonArmy/DACore](https://github.com/DragonArmy/DACore)
+* Unity + Futile (in C#) - TODO
 
