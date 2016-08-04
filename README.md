@@ -4,7 +4,10 @@ This plugin for Adobe generator is meant as a UI placement tool for game develop
 
 Install
 ===============================================
-TODO: how to install
+download the zip file and drop it into your generators folder
+
+Mac: /Applications/Adobe\ Photoshop\ CC\ 2015/Plug-ins/Generator
+Windows: TODO
 
 Usage
 ===============================================
