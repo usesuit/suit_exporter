@@ -4,7 +4,9 @@ This plugin for Adobe generator is meant as a UI placement tool for game develop
 
 Install
 ===============================================
-TODO: how to install
+download the zip file and drop it into your generators folder
+* **Mac**: /Applications/Adobe Photoshop CC 2015/Plug-ins/Generator
+* **Windows**: TODO
 
 Usage
 ===============================================
@@ -61,5 +63,6 @@ The "extras" that we implement in our own games are:
 
 Implementations
 ===============================================
-TODO: implement this stuff
+* SpriteKit/Native iOS (in Swift) - [https://github.com/DragonArmy/DACore](https://github.com/DragonArmy/DACore)
+* Unity + Futile (in C#) - TODO
 
