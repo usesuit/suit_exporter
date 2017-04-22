@@ -111,7 +111,6 @@
         logger.info("STARTING " + lastMenuClicked + " FOR " + activeDocumentId);
         
         generator.getDocumentInfo(activeDocumentId).then(function(document) {
-            // console.log(document);
             var document_path = document.file;
             var folder = document_path.replace(".psd","");           
             var name = path.basename(document_path);
@@ -150,7 +149,6 @@
 
     function updateMetadata(document)
     {
-        console.log("UPDATING METADATA");
         if(lastMenuClicked == EXPORT_ALL_ID || lastMenuClicked == CROP_ALL_ID)
         {
             logger.info("no metadata for target " + lastMenuClicked);
@@ -214,7 +212,6 @@
 
             if(layers[i].layers)
             {
-                console.log("PROCESS CHILDREN RECURSIVE.......");
                 meta_node = processGroup(layers[i]);
 
                 //if it was an organizational group, just add the nodes!
@@ -238,7 +235,6 @@
                 }
 
             }else{
-                console.log("PROCESS SINGLE LAYER.......");
                 meta_node = processLayer(layers[i]);
             }
 
@@ -253,11 +249,7 @@
             {
                 meta_node.position = meta_node.position_absolute
             }else{
-                console.log("CALCULATING POSITION FOR " + meta_node.name);
                 meta_node.position = [meta_node.position_absolute[0] - parent.position_absolute[0],meta_node.position_absolute[1] - parent.position_absolute[1]];
-                console.log("POSITION: " + meta_node.position);
-                console.log("ABSOLUTE: " + meta_node.position_absolute);
-                console.log("PARENT ABSOLUTE: " + parent.position_absolute);
             }
 
             if(meta_node.pivot_absolute != null)
@@ -286,13 +278,10 @@
     //GUIDE, CONTAINER, (nothing), PROGRESS, SCALE9, BTN, SCALEBTN, TAB
     function processGroup(group) 
     {
-        console.log(".... process group '" + group.name + "'' with " + group.layers.length + " children");
-
         //ignore anything in a guide folder
         if(group.name.indexOf("guide") == 0) return null;
 
         var group_name = group.name.replace(/ /g, "_");
-        console.log(group_name);
 
         var CONTAINER_ALIASES = ["container", "progress", "scale9", "btn", "scalebtn", "tab", "paragraph"];
         var group_type = group_name.split("_")[0];
@@ -301,14 +290,10 @@
             "name":group_name,
             "type":null
         };
-        console.log("meta_node created");
 
         var center_rect = extractCenterAndSize(group.bounds);
-        console.log(center_rect);
         meta_node["position_absolute"] = [center_rect[0], center_rect[1]];
         meta_node["size"] = [center_rect[2], center_rect[3]];
-
-        console.log(meta_node);
 
         if(CONTAINER_ALIASES.indexOf(group_type) >= 0)
         {
@@ -316,9 +301,6 @@
         }else{
             meta_node.type = "flatten";
         }
-
-        console.log(meta_node);
-        console.log("fetching children...");
 
         meta_node["children"] = convertLayersToChildren(group.layers, meta_node);
 
@@ -338,15 +320,11 @@
             }
         }
 
-        console.log("RETURNING META NODE");
-        console.log(meta_node);
         return meta_node;
     }
 
     function extractCenterAndSize(bounds) 
     {     
-        console.log("EXTRACTING CENTER AND SIZE");
-
         if(lastMenuClicked == "spritekit")
         {
             var width = bounds.right - bounds.left;
@@ -355,19 +333,15 @@
             var center_x = bounds.left + width/2;
             var center_y = bounds.bottom - height/2;
       
-            console.log("CENTER: " + center_x + "," + center_y);
-      
             center_x = center_x - rootWidth/2;  //convert to origin at center
             center_y = rootHeight/2 - center_y;  //convert to origin at center, y-positive
 
-            console.log("RETURNING " + [center_x,center_y,width,height]);
             return [center_x, center_y, width, height];  
         }else if(lastMenuClicked == "native_ui"){
         
             var width = bounds.right - bounds.left;
             var height = bounds.bottom - bounds.top; //y-down
         
-            console.log("RETURNING " + [bounds.left, bounds.top, width, height]);
             return [bounds.left, bounds.top, width, height];
         }
     }
@@ -383,12 +357,7 @@
       
         if(layer.boundsWithFX != null)
         {
-            console.log("HAS FX BOUNDS: " + layerName);
-            console.log("BOUNDS: " + layer.bounds.left + "," + layer.bounds.top + "," + (layer.bounds.right - layer.bounds.left) + "," + (layer.bounds.bottom - layer.bounds.top));
-            console.log("FX BOUNDS: " + layer.boundsWithFX.left + "," + layer.boundsWithFX.top + "," + (layer.boundsWithFX.right - layer.boundsWithFX.left) + "," + (layer.boundsWithFX.bottom - layer.boundsWithFX.top));
-            console.log("BEFORE: " + center_rect);
             center_rect = extractCenterAndSize(layer.boundsWithFX);
-            console.log("AFTER: " + center_rect);
         }
       
         var position = [center_rect[0], center_rect[1]];
@@ -399,13 +368,6 @@
         {
             if(layer.text != null)
             {
-                // console.log("******************* TEXT " + layer.name);
-                // console.log("POSITION: " + position);
-                // console.log("SIZE: " + size);
-                // console.log(layer.text);
-                // console.log(layer.text.textStyleRange[0]);
-                // console.log(layer.text.paragraphStyleRange[0]);
-
                 //splitting these out just in case I need to debug
                 var default_text = layer.text.textKey;
 
@@ -420,12 +382,9 @@
 
                 if(layer.blendOptions != null)
                 {
-                    console.log("BLEND OPTIONS FOUND");
-                    console.log(layer.blendOptions);            
                     if(layer.blendOptions.hasOwnProperty("opacity"))
                     {
                         alpha = layer.blendOptions.opacity.value / 100.0;
-                        console.log("ALPHA SET TO " + alpha);
                     }
                 }
                     
@@ -434,8 +393,8 @@
                 {
                     var text_style = layer.text.textStyleRange[0].textStyle;
             
-                    logger.error("++++++++++++++++++++++++++");
-                    logger.error(text_style);
+                    logger.info("++++++++++++++++++++++++++");
+                    logger.info(text_style);
             
                     text_font = text_style.fontName;
                     text_fontStyle = text_style.fontStyleName;
@@ -444,17 +403,13 @@
                     {
                         if(text_style.size.hasOwnProperty("value"))
                         {
-                            console.log("TEXT STYLE SIZE HAS VALUE");
                             text_size = text_style.size.value;    
                         }else{
-                            console.log("TEXT STYLE SIZE HAS NO VALUE");
-                            console.log(text_style);
-                            console.log(text_style.size);
                             text_size = text_style.size;
                         }
                     }else{
-                        console.log("TEXT STYLE HAS NO SIZE");
-                        console.log(text_style);
+                        logger.warn("TEXT STYLE HAS NO SIZE");
+                        logger.warn(text_style);
                     }
             
                     var red_value = 0;
@@ -483,7 +438,7 @@
 
                 if(layer.text.paragraphStyleRange == null)
                 {
-                    console.log("PARAGRAPH STYLE = null");
+                    logger.warn("PARAGRAPH STYLE = null");
                 }else{
                     try
                     {
