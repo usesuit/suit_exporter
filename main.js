@@ -25,6 +25,7 @@
 (function () {
 
     var fs = require('fs');
+    var path = require('path');
 
     var generator = null;
     var config = null;
@@ -36,9 +37,13 @@
     var EXPORT_ALL_ID = PLUGIN_ID + "_full";
     var CROP_ALL_ID = PLUGIN_ID + "_cropped";
 
-    var activeDocumentId = null;
     var lastMenuClicked = null;
+    var activeDocumentId = null;
+    var activeDocumentName = null;
     var activeDocumentRoot = null;
+
+    var rootWidth;
+    var rootHeight;
 
     function init(_generator, _config, _logger) {
     
@@ -106,12 +111,16 @@
         logger.info("STARTING " + lastMenuClicked + " FOR " + activeDocumentId);
         
         generator.getDocumentInfo(activeDocumentId).then(function(document) {
-            //console.log(document);
-            var path = document.file;
-            var folder = document.file.replace(".psd","");
-
+            // console.log(document);
+            var document_path = document.file;
+            var folder = document_path.replace(".psd","");           
+            var name = path.basename(document_path);
+            
+            activeDocumentName = name.replace(".psd","");
             activeDocumentRoot = folder;
+
             prepExportDirectory();
+            updateMetadata(document);
         });
     }
 
@@ -123,7 +132,7 @@
             { 
                 var files = fs.readdirSync(activeDocumentRoot); 
             }catch(e) {
-                console.warn("UNABLE TO GET FILES IN " + activeDocumentRoot);
+                logger.warn("UNABLE TO GET FILES IN " + activeDocumentRoot);
                 return; 
             }
             for (var i = 0; i < files.length; i++) 
@@ -138,6 +147,439 @@
             fs.mkdirSync(activeDocumentRoot);
         }
     }
+
+    function updateMetadata(document)
+    {
+        console.log("UPDATING METADATA");
+        if(lastMenuClicked == EXPORT_ALL_ID || lastMenuClicked == CROP_ALL_ID)
+        {
+            logger.info("no metadata for target " + lastMenuClicked);
+            return;
+        }
+
+        rootWidth = document.bounds.right - document.bounds.left;
+        rootHeight = document.bounds.bottom - document.bounds.top;
+
+        var metadata = {
+            root_width: rootWidth,
+            root_height: rootHeight,
+            coordinate_system: lastMenuClicked,
+            children: convertLayersToChildren(document.layers, null)
+        }
+
+        console.log("******************************************");
+        console.log(JSON.stringify(metadata));
+        printSceneGraph(metadata,0);
+        console.log("******************************************");
+
+        var metadata_path = activeDocumentRoot + "/" + activeDocumentName + ".txt";
+        console.log("WRITING FILE: " + activeDocumentName + ".txt");
+        fs.writeFile(metadata_path, JSON.stringify(metadata));
+    }
+
+    function printSceneGraph(container, depth) 
+    {
+
+        var indent = "--";
+        for(var i = 0; i < depth; i++)
+        {
+            indent = indent + "--";
+        }
+
+        if(depth == 0)
+        {
+            console.log("root");
+        }
+
+        for(var i = 0; i < container.children.length; i++)
+        {
+            console.log(indent + container.children[i].name + "(" + container.children[i].type + ")");
+
+            if(container.children[i].type == "container")
+            {
+                printSceneGraph(container.children[i], depth + 1);
+            }
+        }
+    }
+
+    function convertLayersToChildren(layers, parent)
+    {
+        var children = [];
+
+        //process back to front so that we can simply work through 
+        //the list and add children as we go on the front-end side
+        for(var i = layers.length-1; i >= 0; i--)
+        {
+            var meta_node = null;
+
+            if(layers[i].layers)
+            {
+                console.log("PROCESS CHILDREN RECURSIVE.......");
+                meta_node = processGroup(layers[i]);
+
+                //if it was an organizational group, just add the nodes!
+                if(meta_node != null && meta_node.type == "flatten")
+                {
+                    for(var j = 0; j < meta_node.children.length; j++)
+                    {
+                        children.push(meta_node.children[j]);
+
+                        //fill in the position relative to the parent
+                        if(parent == null)
+                        {
+                            meta_node.children[j].position = meta_node.children[j].position_absolute
+                        }else{
+                            meta_node.children[j].position = [meta_node.children[j].position_absolute[0] - parent.position_absolute[0], meta_node.children[j].position_absolute[1] - parent.position_absolute[1]]
+                        }
+
+                    }
+
+                    meta_node = null;
+                }
+
+            }else{
+                console.log("PROCESS SINGLE LAYER.......");
+                meta_node = processLayer(layers[i]);
+            }
+
+            //don't assume we got a node! might be a guide container or our options layer
+            if(meta_node == null)
+            {
+                continue;
+            }
+
+            //fill in the relative position
+            if(parent == null)
+            {
+                meta_node.position = meta_node.position_absolute
+            }else{
+                console.log("CALCULATING POSITION FOR " + meta_node.name);
+                meta_node.position = [meta_node.position_absolute[0] - parent.position_absolute[0],meta_node.position_absolute[1] - parent.position_absolute[1]];
+                console.log("POSITION: " + meta_node.position);
+                console.log("ABSOLUTE: " + meta_node.position_absolute);
+                console.log("PARENT ABSOLUTE: " + parent.position_absolute);
+            }
+
+            if(meta_node.pivot_absolute != null)
+            {
+                var pivot_relative;
+                if(parent == null)
+                {
+                    pivot_relative = meta_node.pivot_absolute;
+                }else{
+                    pivot_relative = [meta_node.pivot_absolute[0] - parent.position_absolute[0],meta_node.pivot_absolute[1] - parent.position_absolute[1]]
+                }
+
+                //our pivot should ACTUALLY be our position, but record the delta in the pivot variable
+                var old_position = meta_node.position; //swap
+                meta_node.position = pivot_relative;
+                meta_node.pivot = [old_position[0] - pivot_relative[0], old_position[1] - pivot_relative[1]];
+            }
+
+
+            children.push(meta_node);
+        }
+
+        return children;
+    }
+
+    //GUIDE, CONTAINER, (nothing), PROGRESS, SCALE9, BTN, SCALEBTN, TAB
+    function processGroup(group) 
+    {
+        console.log(".... process group '" + group.name + "'' with " + group.layers.length + " children");
+
+        //ignore anything in a guide folder
+        if(group.name.indexOf("guide") == 0) return null;
+
+        var group_name = group.name.replace(/ /g, "_");
+        console.log(group_name);
+
+        var CONTAINER_ALIASES = ["container", "progress", "scale9", "btn", "scalebtn", "tab", "paragraph"];
+        var group_type = group_name.split("_")[0];
+
+        var meta_node = {
+            "name":group_name,
+            "type":null
+        };
+        console.log("meta_node created");
+
+        var center_rect = extractCenterAndSize(group.bounds);
+        console.log(center_rect);
+        meta_node["position_absolute"] = [center_rect[0], center_rect[1]];
+        meta_node["size"] = [center_rect[2], center_rect[3]];
+
+        console.log(meta_node);
+
+        if(CONTAINER_ALIASES.indexOf(group_type) >= 0)
+        {
+            meta_node.type = "container";
+        }else{
+            meta_node.type = "flatten";
+        }
+
+        console.log(meta_node);
+        console.log("fetching children...");
+
+        meta_node["children"] = convertLayersToChildren(group.layers, meta_node);
+
+        //see if we have a pivot node!
+        for(var i = 0; i < meta_node["children"].length; i++)
+        {
+            if(meta_node["children"][i]["type"] == "pivot")
+            {
+                //copy that node's position as my pivot
+                meta_node["pivot_absolute"] = meta_node["children"][i]["position_absolute"]
+
+                //delete the pivot node
+                meta_node["children"].splice(i,1);
+
+                //only one pivot allowed, so we can bail here
+                break;
+            }
+        }
+
+        console.log("RETURNING META NODE");
+        console.log(meta_node);
+        return meta_node;
+    }
+
+    function extractCenterAndSize(bounds) 
+    {     
+        console.log("EXTRACTING CENTER AND SIZE");
+
+        if(lastMenuClicked == "spritekit")
+        {
+            var width = bounds.right - bounds.left;
+            var height = bounds.bottom - bounds.top; //y-down
+
+            var center_x = bounds.left + width/2;
+            var center_y = bounds.bottom - height/2;
+      
+            console.log("CENTER: " + center_x + "," + center_y);
+      
+            center_x = center_x - rootWidth/2;  //convert to origin at center
+            center_y = rootHeight/2 - center_y;  //convert to origin at center, y-positive
+
+            console.log("RETURNING " + [center_x,center_y,width,height]);
+            return [center_x, center_y, width, height];  
+        }else if(lastMenuClicked == "native_ui"){
+        
+            var width = bounds.right - bounds.left;
+            var height = bounds.bottom - bounds.top; //y-down
+        
+            console.log("RETURNING " + [bounds.left, bounds.top, width, height]);
+            return [bounds.left, bounds.top, width, height];
+        }
+    }
+
+    //GUIDE, OPTIONS, TEXT, PIVOT, PLACEHOLDER, TILE, IMAGE, SCALEBTN
+    function processLayer(layer) {
+        var layerName = layer.name;
+
+        if(layer.name.indexOf("guide") == 0) return null;
+        if(layer.name == "options") return null;
+
+        var center_rect = extractCenterAndSize(layer.bounds);
+      
+        if(layer.boundsWithFX != null)
+        {
+            console.log("HAS FX BOUNDS: " + layerName);
+            console.log("BOUNDS: " + layer.bounds.left + "," + layer.bounds.top + "," + (layer.bounds.right - layer.bounds.left) + "," + (layer.bounds.bottom - layer.bounds.top));
+            console.log("FX BOUNDS: " + layer.boundsWithFX.left + "," + layer.boundsWithFX.top + "," + (layer.boundsWithFX.right - layer.boundsWithFX.left) + "," + (layer.boundsWithFX.bottom - layer.boundsWithFX.top));
+            console.log("BEFORE: " + center_rect);
+            center_rect = extractCenterAndSize(layer.boundsWithFX);
+            console.log("AFTER: " + center_rect);
+        }
+      
+        var position = [center_rect[0], center_rect[1]];
+        var size = [center_rect[2], center_rect[3]];
+
+
+        if(layer.name.indexOf("text") == 0)
+        {
+            if(layer.text != null)
+            {
+                // console.log("******************* TEXT " + layer.name);
+                // console.log("POSITION: " + position);
+                // console.log("SIZE: " + size);
+                // console.log(layer.text);
+                // console.log(layer.text.textStyleRange[0]);
+                // console.log(layer.text.paragraphStyleRange[0]);
+
+                //splitting these out just in case I need to debug
+                var default_text = layer.text.textKey;
+
+                //DEFAULT VALUES
+                var text_color = "000000";
+                var text_font = "Arial";
+                var text_fontStyle = "Black";
+                var text_justification = "left"
+                var text_size = 24;
+                var alpha = 1.0;
+          
+
+                if(layer.blendOptions != null)
+                {
+                    console.log("BLEND OPTIONS FOUND");
+                    console.log(layer.blendOptions);            
+                    if(layer.blendOptions.hasOwnProperty("opacity"))
+                    {
+                        alpha = layer.blendOptions.opacity.value / 100.0;
+                        console.log("ALPHA SET TO " + alpha);
+                    }
+                }
+                    
+
+                try
+                {
+                    var text_style = layer.text.textStyleRange[0].textStyle;
+            
+                    logger.error("++++++++++++++++++++++++++");
+                    logger.error(text_style);
+            
+                    text_font = text_style.fontName;
+                    text_fontStyle = text_style.fontStyleName;
+            
+                    if(text_style.hasOwnProperty("size"))
+                    {
+                        if(text_style.size.hasOwnProperty("value"))
+                        {
+                            console.log("TEXT STYLE SIZE HAS VALUE");
+                            text_size = text_style.size.value;    
+                        }else{
+                            console.log("TEXT STYLE SIZE HAS NO VALUE");
+                            console.log(text_style);
+                            console.log(text_style.size);
+                            text_size = text_style.size;
+                        }
+                    }else{
+                        console.log("TEXT STYLE HAS NO SIZE");
+                        console.log(text_style);
+                    }
+            
+                    var red_value = 0;
+                    var green_value = 0;
+                    var blue_value = 0;
+            
+                    if(text_style.color.red != undefined) red_value = text_style.color.red;
+                    if(text_style.color.green != undefined) green_value = text_style.color.green;
+                    if(text_style.color.blue != undefined) blue_value = text_style.color.blue;
+            
+                    var red = Math.round(red_value).toString(16);
+                    var green = Math.round(green_value).toString(16);
+                    var blue = Math.round(blue_value).toString(16);
+            
+                    if(red.length < 2) red = "0" + red;
+                    if(green.length < 2) green = "0" + green;
+                    if(blue.length < 2) blue = "0" + blue;
+
+                    text_color = red + green + blue;
+            
+                }catch(e){
+                    logger.error("ERROR PARSING FONT STYLE -- " + e);
+                    logger.error(layer.text.textKey);
+                    logger.error(layer.text.textStyleRange);
+                }
+
+                if(layer.text.paragraphStyleRange == null)
+                {
+                    console.log("PARAGRAPH STYLE = null");
+                }else{
+                    try
+                    {
+                        var par_style = layer.text.paragraphStyleRange[0].paragraphStyle;
+                        text_justification = par_style.align;
+
+                        switch(text_justification)
+                        {
+                            case "left":
+                                //adjust position for left align
+                                if(lastMenuClicked == "spritekit")
+                                {
+                                    position[0] = position[0] - size[0]/2;    
+                                }else if(lastMenuClicked == "native_ui"){
+                                    //already left aligned by default!
+                                }else{
+                                    logger.warn("ERROR: DONT KNOW HOW TO PROCESS lastMenuClicked " + lastMenuClicked);
+                                }
+
+                                break;
+                            case "right":
+                                if(lastMenuClicked == "spritekit")
+                                {
+                                    position[0] = position[0] + size[0]/2;
+                                }else if(lastMenuClicked == "native_ui"){
+                                    position[0] = position[0] + size[0];
+                                }else{
+                                    logger.warn("ERROR: DONT KNOW HOW TO PROCESS lastMenuClicked " + lastMenuClicked);
+                                }
+
+                                break;
+                            case "center":
+                                if(lastMenuClicked == "spritekit")
+                                {
+                                    //center aligned by default!
+                                }else if(lastMenuClicked == "native_ui"){
+                                    position[0] = position[0] + size[0]/2;
+                                }else{
+                                    logger.warn("ERROR: DONT KNOW HOW TO PROCESS lastMenuClicked " + lastMenuClicked);
+                                }
+                                break;
+                        }
+
+                    }catch(e){
+                        logger.error("ERROR PARSING PARAGRAPH STYLE -- " + e);
+                        logger.error(layer.text.paragraphStyleRange[0]);
+                    }
+                }
+
+                if(layer.text.transform)
+                {
+                    text_size = text_size * layer.text.transform.xx;
+                }
+
+
+                return {
+                    "name" : layer.name.substr(5).replace(/ /g,"_"),
+                    "type" : "text",
+                    "position_absolute" : position,
+                    "size": size,
+                    "color":text_color,
+                    "font":text_font + "-" + text_fontStyle,
+                    "justification":text_justification,
+                    "fontSize":text_size,
+                    "text": default_text,
+                    "alpha":alpha
+                };
+            }
+        }
+
+        if(layer.name.indexOf("pivot") == 0)
+        {
+            return { "name" : layer.name.substr(6).replace(/ /g,"_"), "type" : "pivot", "position_absolute" : position };
+        }
+
+        if(layer.name.indexOf("placeholder") == 0)
+        {
+            return { "name" : layer.name.substr(12).replace(/ /g,"_"), "type" : "placeholder", "position_absolute":position, "size":size }
+        }
+
+        //tile_NAMEOFTEXTURE is a special kind of placeholder where we look for an image named NAMEOFTEXTURE and tile it horizontally & vertically to fill the rect
+        if(layer.name.indexOf("tile") == 0)
+        {
+            return { "name" : layer.name.replace(/ /g,"_"), "type" : "placeholder", "position_absolute":position, "size":size }
+        }
+      
+        if(layer.name.indexOf("alias") == 0)
+        {
+            //trim off the "alias_" and the metadata points to a pre-existing image!
+            return { "name" : layer.name.substr(6).replace(/ /g,"_"), "type" : "image", "position_absolute" : position };
+        }
+      
+        //IMAGE OR SCALEBTN
+        return { "name" : layer.name.replace(/ /g,"_"), "type" : "image", "position_absolute" : position, "size":size };
+    }
+
 
     function initializeMenus()
     {
