@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015 Dragon Army, Inc.
+ * Copyright (c) 2017 Dragon Army, Inc.
  *  
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"), 
@@ -21,77 +21,55 @@
  * 
  */
 
-// using the Adobe asset exporter from https://github.com/adobe-photoshop/generator-assets
-// as a base to build off of
+
 (function () {
-    "use strict";
-    
-    var PLUGIN_ID = require("./package.json").name;
 
+    var fs = require('fs');
+
+    var generator = null;
+    var config = null;
+    var logger = null;
+
+    var PLUGIN_ID = require("./package.json").name;
     var SK_MENU_ID = PLUGIN_ID;
-    var SK_MENU_LABEL = "$$$/JavaScripts/Generator/DAExportSpriteKit/Menu=DA Export for SpriteKit";
-    
     var NATIVE_MENU_ID = PLUGIN_ID + "_native";
-    var NATIVE_MENU_LABEL = "$$$/JavaScripts/Generator/DAExportNative/Menu=DA Export for Native UI";
-    
-    
-    var DocumentManager = require("./lib/documentmanager"),
-        RenderManager = require("./lib/rendermanager"),
-        AssetManager = require('./lib/assetmanager');
-        
-    var PLUGIN_ID = require("./package.json").name;
-    
-    var _generator = null,
-        _currentDocumentId = null,
-        _config = null,
-        _logger = null,
-        _documentManager = null,
-        _renderManager = null;
+    var EXPORT_ALL_ID = PLUGIN_ID + "_full";
+    var CROP_ALL_ID = PLUGIN_ID + "_cropped";
 
-    var _assetManagers = {};
+    var activeDocumentId = null;
+    var lastMenuClicked = null;
+    var activeDocumentRoot = null;
+
+    function init(_generator, _config, _logger) {
     
-    var _waitingDocuments = {},
-        _canceledDocuments = {};
-        
-    var   activeDocumentId = null,
-          menuPromise = null,
-          nextMenuState = null;
+        generator = _generator;
+        config = _config;
+        logger = _logger;
+        logger.info("REALLY intializing DA-Export with config %j", _config);
 
-    /*********** INIT ***********/
+        initializeMenus();
 
-    function init(generator, config, logger) {
-        _generator = generator;
-        _config = config;
-        _logger = logger;
 
-        console.log("initializing DA-Export generator with config %j", _config);
-        
-        //the adobe document manager keeps an up to date version of the document DOM and applies documentChanged events as patches to keep up
-        _documentManager = new DocumentManager(generator, config, logger);
-        _renderManager = new RenderManager(generator, config, logger);
-        
-        function initLater() {
-          
-          _renderManager.on("idle", onIdle);
-          
-          _generator.addMenuItem(SK_MENU_ID, SK_MENU_LABEL, true, false);
-          _generator.addMenuItem(NATIVE_MENU_ID, NATIVE_MENU_LABEL, true, false);
-                    
-          _documentManager.on("activeDocumentChanged", handleActiveDocumentChanged);
-          _generator.onPhotoshopEvent("generatorMenuChanged", handleMenuClicked);
-          
-        }
-        
-        process.nextTick(initLater);
-    }  
+        generator.onPhotoshopEvent("currentDocumentChanged", handleActiveDocumentChanged);
+        generator.onPhotoshopEvent("generatorMenuChanged", handleMenuClicked);
+
+        //prefill the current document if there is one
+        generator.evaluateJSXString("app.activeDocument.id").then(function(id){
+            handleActiveDocumentChanged(id);
+
+            //useful for testing a file that's open
+            logger.info("RUNNING SPRITEKIT EXPORT");
+            lastMenuClicked = "spritekit";
+            handleExport();
+        });
+    }
     
     function handleActiveDocumentChanged(id) 
     {
-        console.log("ACTIVE DOCUMENT: " + id);
         activeDocumentId = id;
     };
+
     
-    var lastMenuClicked = "spritekit";
     function handleMenuClicked(event)
     {
         var menu = event.generatorMenuChanged;
@@ -102,106 +80,87 @@
 
         if (activeDocumentId === null) 
         {
-            _logger.warn("Ignoring menu click without a current document.");
+            logger.warn("Ignoring menu click without a current document.");
             return;
         }
         
         // Ignore changes to other menus
         if (menu.name == SK_MENU_ID) 
         {
-          lastMenuClicked = "spritekit";
+            lastMenuClicked = "spritekit";
         }else if(menu.name == NATIVE_MENU_ID){
-          lastMenuClicked = "native_ui"; 
+            lastMenuClicked = "native_ui"; 
+        }else if(menu.name == EXPORT_ALL_ID){
+            lastMenuClicked = "export_all";
+        }else if(menu.name == CROP_ALL_ID){
+            lastMenuClicked = "crop_all";
         }else{
           return;
         }
 
-        _logger.warn("STARTING ASSET GENERATION FOR " + activeDocumentId);
-        startAssetGeneration(activeDocumentId);
+        handleExport();
     }
 
-    /*********** EVENTS ***********/
-    
-    function startAssetGeneration(id) {
-        if (_waitingDocuments.hasOwnProperty(id)) 
-        {
-            print("already waiting on a document");
-            return;
-        }
+    function handleExport()
+    {
+        logger.info("STARTING " + lastMenuClicked + " FOR " + activeDocumentId);
+        
+        generator.getDocumentInfo(activeDocumentId).then(function(document) {
+            //console.log(document);
+            var path = document.file;
+            var folder = document.file.replace(".psd","");
 
-        var documentPromise = _documentManager.getDocument(id);
-        _waitingDocuments[id] = documentPromise;
-
-        documentPromise.done(function (document) {
-            delete _waitingDocuments[id];
-
-            if (_canceledDocuments.hasOwnProperty(id)) {
-                delete _canceledDocuments[id];
-            } else {
-                //don't cache asset manager -- make a new one each time we hit export
-                _assetManagers[id] = new AssetManager(_generator, _config, _logger, document, _renderManager);
-                document.on("closed", stopAssetGeneration.bind(undefined, id));
-                _assetManagers[id].start();
-            }
+            activeDocumentRoot = folder;
+            prepExportDirectory();
         });
     }
-    
-    function onIdle()
+
+    function prepExportDirectory()
     {
-      if(_assetManagers.hasOwnProperty(activeDocumentId))
-      {
-        _assetManagers[activeDocumentId].updateDAMetadata(lastMenuClicked);
-      }
-      
-      stopAssetGeneration(activeDocumentId);
-      sendJavascript("alert('EXPORT COMPLETE: " + lastMenuClicked + "');");
-    }
-
-    function restartAssetGeneration(id) {
-        stopAssetGeneration(id);
-        startAssetGeneration(id);
-    }
-
-    function pauseAssetGeneration(id) {
-        if (_waitingDocuments.hasOwnProperty(id)) {
-            _canceledDocuments[id] = true;
-        } else if (_assetManagers.hasOwnProperty(id)) {
-            _assetManagers[id].stop();
+        if (fs.existsSync(activeDocumentRoot)) 
+        {
+            try 
+            { 
+                var files = fs.readdirSync(activeDocumentRoot); 
+            }catch(e) {
+                console.warn("UNABLE TO GET FILES IN " + activeDocumentRoot);
+                return; 
+            }
+            for (var i = 0; i < files.length; i++) 
+            {
+                var filePath = activeDocumentRoot + '/' + files[i];
+                if (fs.statSync(filePath).isFile())
+                {
+                    fs.unlinkSync(filePath);    
+                }
+            }
+        }else{
+            fs.mkdirSync(activeDocumentRoot);
         }
     }
 
-    function stopAssetGeneration(id) {
-        pauseAssetGeneration(id);
+    function initializeMenus()
+    {
+        //export all layers/containers for spritekit
+        var SK_MENU_LABEL = "DA -> Export SpriteKit";
 
-        if (_assetManagers.hasOwnProperty(id)) {
-            delete _assetManagers[id];
-        }
-    }
-    
+        //export all layers/containers for native UI
+        var NATIVE_MENU_LABEL = "DA -> Export Native UI";
 
+        //export all layers with no metadata and no cropping
+        var EXPORT_ALL_LABEL = "DA -> Export Full Sized"
 
-    /*********** HELPERS ***********/
+        //export all layers with no metadata and no cropping
+        var CROP_ALL_LABEL = "DA -> Export Cropped"
 
-
-    function sendJavascript(str){
-        _generator.evaluateJSXString(str).then(
-            function(result){
-                console.log(result);
-            },
-            function(err){
-                console.log(err);
-            });
-    }
-
-    function stringify(object) {
-        try {
-            return JSON.stringify(object, null, "    ");
-        } catch (e) {
-            console.error(e);
-        }
-        return String(object);
+        //name, displayName, enabled, checked
+        generator.addMenuItem(SK_MENU_ID, SK_MENU_LABEL, true, false);
+        generator.addMenuItem(NATIVE_MENU_ID, NATIVE_MENU_LABEL, true, false);
+        generator.addMenuItem(EXPORT_ALL_ID, EXPORT_ALL_LABEL, true, false);
+        generator.addMenuItem(CROP_ALL_ID, CROP_ALL_LABEL, true, false);
     }
 
     exports.init = init;
-    
 }());
+
+   

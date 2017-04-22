@@ -1,6 +1,6 @@
 {
   "name": "da-export",
-  "version": "1.1.0",
+  "version": "2.0.0",
   "description": "Container-based scene graph export (Bring Your Own Scene Graph).",
   "main": "main.js",
   "generator-core-version": "~3",
@@ -11,10 +11,6 @@
   "scripts": {
   },
   "dependencies": {
-    "q": "~1.0",
-    "fs-extra": "^0.16.3",
-    "tmp": "~0.0.24",
-    "list-directory-contents":"~0.0.3"
   },
   "devDependencies": {
   }

@@ -6,7 +6,7 @@ Install
 ===============================================
 download the zip file and drop it into your generators folder
 * **Mac**: /Applications/Adobe Photoshop CC 2015/Plug-ins/Generator
-* **Windows**: TODO
+* **Windows**: C:\Program Files\Adobe\Adobe Photoshop CC 2017\Plug-ins\Generator
 
 Usage
 ===============================================
@@ -18,13 +18,13 @@ By default, Photoshop groups are purely organizational for your artists in photo
 
 Supported Containers (Photoshop Groups)
 -------------
-* **container** (e.g. "container_header") - a node which contains other nodes, but no content of its own
-* **progress** (e.g. "progress_health") - an alias for container (see runtime notes)
-* **scale9** (e.g. "scale9_popup_bg") - an alias for container (see runtime notes)
-* **btn** (e.g. "btn_start") - an alias for container (see runtime notes)
-* **scalebtn** (e.g. "scalebtn_start") - an alias for container (see runtime notes)
-* **tab** (e.g. "tab_options") - an alias for container (see runtime notes)
-* **guide** (e.g. "guide_stuff") - a photoshop group which will have its contents ignored by the exporter
+* **container** ("container_header") - a node which contains other nodes, but no content of its own
+* **progress** ("progress_health") - an alias for container (see runtime notes)
+* **scale9** ("scale9_popup_bg") - an alias for container (see runtime notes)
+* **btn** ("btn_start") - an alias for container (see runtime notes)
+* **scalebtn** ("scalebtn_start") - an alias for container (see runtime notes)
+* **tab** ("tab_options") - an alias for container (see runtime notes)
+* **guide** ("guide_stuff") - a photoshop group which will have its contents ignored by the exporter
 
 Supported Nodes (Photoshop Layers)
 ------------------------------------
@@ -65,4 +65,4 @@ Implementations
 ===============================================
 * SpriteKit/Native iOS (in Swift) - [https://github.com/DragonArmy/DACore](https://github.com/DragonArmy/DACore)
 * Unity + Futile (in C#) - TODO
-
+* HTML5 (via Pixi.js) - TODO
