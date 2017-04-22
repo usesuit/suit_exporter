@@ -42,8 +42,18 @@
     var activeDocumentName = null;
     var activeDocumentRoot = null;
 
+    var layersToExport = [];
+
     var rootWidth;
     var rootHeight;
+
+    var pixmapSettings = {
+        "clipToDocumentBounds":true
+    };
+    var pixmapRenderSettings = {
+        quality:32,
+        format:"png"
+    };
 
     function init(_generator, _config, _logger) {
     
@@ -111,6 +121,11 @@
         logger.info("STARTING " + lastMenuClicked + " FOR " + activeDocumentId);
         
         generator.getDocumentInfo(activeDocumentId).then(function(document) {
+            
+            console.log(document);
+            pixmapRenderSettings.ppi = document.resolution;
+
+
             var document_path = document.file;
             var folder = document_path.replace(".psd","");           
             var name = path.basename(document_path);
@@ -118,8 +133,29 @@
             activeDocumentName = name.replace(".psd","");
             activeDocumentRoot = folder;
 
+            layersToExport = [];
+
             prepExportDirectory();
             updateMetadata(document);
+            render();
+        });
+    }
+
+    function render()
+    {
+        console.log("RENDERING " + layersToExport.length + " IMAGE LAYERS");
+        for(var i = 0; i < layersToExport.length; i++)
+        {
+            renderLayer(layersToExport[i][0], layersToExport[i][1]);
+        }
+        layersToExport = [];
+    }
+
+    function renderLayer(layer_name, layer_id)
+    {
+        generator.getPixmap(activeDocumentId, layer_id, pixmapSettings).then(function (pixmap) {
+            console.log("RENDERING " + activeDocumentRoot + "/" + layer_name + ".png");
+            generator.savePixmap(pixmap, activeDocumentRoot + "/" + layer_name + ".png", pixmapRenderSettings);
         });
     }
 
@@ -147,6 +183,7 @@
         }
     }
 
+    //update our metadata, but also collect all Layer IDs needed for rendering
     function updateMetadata(document)
     {
         if(lastMenuClicked == EXPORT_ALL_ID || lastMenuClicked == CROP_ALL_ID)
@@ -532,6 +569,8 @@
         }
       
         //IMAGE OR SCALEBTN
+        //also need to mark this as a render layer!
+        layersToExport.push([layer.name.replace(/ /g,"_"), layer.id]);
         return { "name" : layer.name.replace(/ /g,"_"), "type" : "image", "position_absolute" : position, "size":size };
     }
 
