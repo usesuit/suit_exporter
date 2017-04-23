@@ -37,6 +37,7 @@
     var EXPORT_ALL_ID = PLUGIN_ID + "_full";
     var CROP_ALL_ID = PLUGIN_ID + "_cropped";
 
+    var lastMenuClicked = "spritekit";
     var coordinateSystem = "spritekit";
     var exportMetadata = true;
     var cropToLayer = true;
@@ -46,6 +47,7 @@
     var activeDocumentRoot = null;
 
     var layersToExport = [];
+    var renderQueue = 0;
 
     var rootWidth;
     var rootHeight;
@@ -102,22 +104,32 @@
             logger.warn("Ignoring menu click without a current document.");
             return;
         }
+
+        if(renderQueue > 0)
+        {
+            generator.alert("ALREADY PROCESSING: " + lastMenuClicked);
+            return;
+        }
         
         // Ignore changes to other menus
         if (menu.name == SK_MENU_ID) 
         {
+            lastMenuClicked = "SpriteKit"
             coordinateSystem = "spritekit";
             exportMetadata = true;
             cropToLayer = true;
         }else if(menu.name == NATIVE_MENU_ID){
+            lastMenuClicked = "UIKit"
             coordinateSystem = "native_ui";
             exportMetadata = true;
             cropToLayer = true;
         }else if(menu.name == EXPORT_ALL_ID){
+            lastMenuClicked = "Uncropped Images Only"
             coordinateSystem = "spritekit";
             exportMetadata = false;
             cropToLayer = false;
         }else if(menu.name == CROP_ALL_ID){
+            lastMenuClicked = "Cropped Images Only"
             coordinateSystem = "spritekit";
             exportMetadata = false;
             cropToLayer = true;
@@ -155,6 +167,7 @@
 
     function render()
     {
+        renderQueue = layersToExport.length;
         for(var i = 0; i < layersToExport.length; i++)
         {
             renderLayer(layersToExport[i][0], layersToExport[i][1]);
@@ -186,6 +199,12 @@
             }
 
             generator.savePixmap(pixmap, activeDocumentRoot + "/" + layer_name + ".png", local_settings);
+            renderQueue -= 1;
+
+            if(renderQueue == 0)
+            {
+                generator.alert("EXPORT COMPLETE: " + lastMenuClicked);
+            }
         });
     }
 
