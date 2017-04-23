@@ -37,7 +37,10 @@
     var EXPORT_ALL_ID = PLUGIN_ID + "_full";
     var CROP_ALL_ID = PLUGIN_ID + "_cropped";
 
-    var lastMenuClicked = null;
+    var coordinateSystem = "spritekit";
+    var exportMetadata = true;
+    var cropToLayer = true;
+
     var activeDocumentId = null;
     var activeDocumentName = null;
     var activeDocumentRoot = null;
@@ -73,9 +76,10 @@
             handleActiveDocumentChanged(id);
 
             //useful for testing a file that's open
-            logger.info("RUNNING SPRITEKIT EXPORT");
-            lastMenuClicked = "spritekit";
-            handleExport();
+            // logger.info("RUNNING SPRITEKIT EXPORT");
+            // coordinateSystem = "spritekit";
+            // exportMetadata = true;
+            // handleExport();
         });
     }
     
@@ -102,13 +106,21 @@
         // Ignore changes to other menus
         if (menu.name == SK_MENU_ID) 
         {
-            lastMenuClicked = "spritekit";
+            coordinateSystem = "spritekit";
+            exportMetadata = true;
+            cropToLayer = true;
         }else if(menu.name == NATIVE_MENU_ID){
-            lastMenuClicked = "native_ui"; 
+            coordinateSystem = "native_ui";
+            exportMetadata = true;
+            cropToLayer = true;
         }else if(menu.name == EXPORT_ALL_ID){
-            lastMenuClicked = "export_all";
+            coordinateSystem = "spritekit";
+            exportMetadata = false;
+            cropToLayer = false;
         }else if(menu.name == CROP_ALL_ID){
-            lastMenuClicked = "crop_all";
+            coordinateSystem = "spritekit";
+            exportMetadata = false;
+            cropToLayer = true;
         }else{
           return;
         }
@@ -118,7 +130,7 @@
 
     function handleExport()
     {
-        logger.info("STARTING " + lastMenuClicked + " FOR " + activeDocumentId);
+        logger.info("STARTING " + coordinateSystem + " FOR " + activeDocumentId);
         
         generator.getDocumentInfo(activeDocumentId).then(function(document) {
             
@@ -143,7 +155,6 @@
 
     function render()
     {
-        console.log("RENDERING " + layersToExport.length + " IMAGE LAYERS");
         for(var i = 0; i < layersToExport.length; i++)
         {
             renderLayer(layersToExport[i][0], layersToExport[i][1]);
@@ -153,9 +164,28 @@
 
     function renderLayer(layer_name, layer_id)
     {
+
+
         generator.getPixmap(activeDocumentId, layer_id, pixmapSettings).then(function (pixmap) {
             console.log("RENDERING " + activeDocumentRoot + "/" + layer_name + ".png");
-            generator.savePixmap(pixmap, activeDocumentRoot + "/" + layer_name + ".png", pixmapRenderSettings);
+    
+            var local_settings = pixmapRenderSettings;
+            if(!cropToLayer)
+            {
+                local_settings = {};
+                Object.keys(pixmapRenderSettings).forEach(function(key) {
+                    local_settings[key] = pixmapRenderSettings[key];
+                });
+
+                local_settings.padding = {
+                    top: pixmap.bounds.top,
+                    left: pixmap.bounds.left,
+                    right: rootWidth - pixmap.bounds.right,
+                    bottom: rootHeight - pixmap.bounds.bottom
+                };
+            }
+
+            generator.savePixmap(pixmap, activeDocumentRoot + "/" + layer_name + ".png", local_settings);
         });
     }
 
@@ -186,30 +216,31 @@
     //update our metadata, but also collect all Layer IDs needed for rendering
     function updateMetadata(document)
     {
-        if(lastMenuClicked == EXPORT_ALL_ID || lastMenuClicked == CROP_ALL_ID)
-        {
-            logger.info("no metadata for target " + lastMenuClicked);
-            return;
-        }
-
         rootWidth = document.bounds.right - document.bounds.left;
         rootHeight = document.bounds.bottom - document.bounds.top;
 
         var metadata = {
             root_width: rootWidth,
             root_height: rootHeight,
-            coordinate_system: lastMenuClicked,
+            coordinate_system: coordinateSystem,
             children: convertLayersToChildren(document.layers, null)
         }
 
-        console.log("******************************************");
-        console.log(JSON.stringify(metadata));
-        printSceneGraph(metadata,0);
-        console.log("******************************************");
+        //we only write the metadata for spritekit & native_ui, but
+        //this process also collects all images that need rendering for
+        //the other two!
+        if(exportMetadata)
+        {
+            console.log("******************************************");
+            console.log(JSON.stringify(metadata));
+            printSceneGraph(metadata,0);
+            console.log("******************************************");
 
-        var metadata_path = activeDocumentRoot + "/" + activeDocumentName + ".txt";
-        console.log("WRITING FILE: " + activeDocumentName + ".txt");
-        fs.writeFile(metadata_path, JSON.stringify(metadata));
+            var metadata_path = activeDocumentRoot + "/" + activeDocumentName + ".txt";
+
+            console.log("WRITING FILE: " + activeDocumentName + ".txt");
+            fs.writeFile(metadata_path, JSON.stringify(metadata));    
+        }        
     }
 
     function printSceneGraph(container, depth) 
@@ -362,7 +393,7 @@
 
     function extractCenterAndSize(bounds) 
     {     
-        if(lastMenuClicked == "spritekit")
+        if(coordinateSystem == "spritekit")
         {
             var width = bounds.right - bounds.left;
             var height = bounds.bottom - bounds.top; //y-down
@@ -374,7 +405,7 @@
             center_y = rootHeight/2 - center_y;  //convert to origin at center, y-positive
 
             return [center_x, center_y, width, height];  
-        }else if(lastMenuClicked == "native_ui"){
+        }else if(coordinateSystem == "native_ui"){
         
             var width = bounds.right - bounds.left;
             var height = bounds.bottom - bounds.top; //y-down
@@ -486,35 +517,35 @@
                         {
                             case "left":
                                 //adjust position for left align
-                                if(lastMenuClicked == "spritekit")
+                                if(coordinateSystem == "spritekit")
                                 {
                                     position[0] = position[0] - size[0]/2;    
-                                }else if(lastMenuClicked == "native_ui"){
+                                }else if(coordinateSystem == "native_ui"){
                                     //already left aligned by default!
                                 }else{
-                                    logger.warn("ERROR: DONT KNOW HOW TO PROCESS lastMenuClicked " + lastMenuClicked);
+                                    logger.warn("ERROR: DONT KNOW HOW TO PROCESS coordinateSystem " + coordinateSystem);
                                 }
 
                                 break;
                             case "right":
-                                if(lastMenuClicked == "spritekit")
+                                if(coordinateSystem == "spritekit")
                                 {
                                     position[0] = position[0] + size[0]/2;
-                                }else if(lastMenuClicked == "native_ui"){
+                                }else if(coordinateSystem == "native_ui"){
                                     position[0] = position[0] + size[0];
                                 }else{
-                                    logger.warn("ERROR: DONT KNOW HOW TO PROCESS lastMenuClicked " + lastMenuClicked);
+                                    logger.warn("ERROR: DONT KNOW HOW TO PROCESS coordinateSystem " + coordinateSystem);
                                 }
 
                                 break;
                             case "center":
-                                if(lastMenuClicked == "spritekit")
+                                if(coordinateSystem == "spritekit")
                                 {
                                     //center aligned by default!
-                                }else if(lastMenuClicked == "native_ui"){
+                                }else if(coordinateSystem == "native_ui"){
                                     position[0] = position[0] + size[0]/2;
                                 }else{
-                                    logger.warn("ERROR: DONT KNOW HOW TO PROCESS lastMenuClicked " + lastMenuClicked);
+                                    logger.warn("ERROR: DONT KNOW HOW TO PROCESS coordinateSystem " + coordinateSystem);
                                 }
                                 break;
                         }
