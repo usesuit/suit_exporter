@@ -625,25 +625,47 @@
     }
 
 
+    function quietlyAddMenuItem(name, displayName)
+    {
+        var MENU_STATE_KEY_PREFIX = "GENERATOR-MENU-";
+
+        //i always use the same settings for these...
+        var enabled = true;
+        var checked = false;
+
+        generator._menuState[MENU_STATE_KEY_PREFIX + name] = {
+            name: name,
+            displayName: displayName,
+            enabled: enabled,
+            checked: checked
+        };
+    }
+
+    //because generator.addMenuItem goes through and executes a JSX script, calling multiple
+    //times in a row often caused later items to not get added to the menu... so instead we'll
+    //just modify the state on the first batch of calls and only trigger the JSX menu update
+    //on the very last menu item we add!
     function initializeMenus()
     {
-        //export all layers/containers for spritekit
         var SK_MENU_LABEL = "DA -> Export SpriteKit";
+        quietlyAddMenuItem(SK_MENU_ID, SK_MENU_LABEL);
+        //generator.addMenuItem(SK_MENU_ID, SK_MENU_LABEL, true, false);            
 
         //export all layers/containers for native UI
         var NATIVE_MENU_LABEL = "DA -> Export Native UI";
+        quietlyAddMenuItem(NATIVE_MENU_ID, NATIVE_MENU_LABEL);
+        //generator.addMenuItem(NATIVE_MENU_ID, NATIVE_MENU_LABEL, true, false);
 
         //export all layers with no metadata and no cropping
-        var EXPORT_ALL_LABEL = "DA -> Export Full Sized"
+        var EXPORT_ALL_LABEL = "DA -> Export Full Sized";
+        quietlyAddMenuItem(EXPORT_ALL_ID, EXPORT_ALL_LABEL);
+        //generator.addMenuItem(EXPORT_ALL_ID, EXPORT_ALL_LABEL, true, false);
 
         //export all layers with no metadata and no cropping
-        var CROP_ALL_LABEL = "DA -> Export Cropped"
-
-        //name, displayName, enabled, checked
-        generator.addMenuItem(SK_MENU_ID, SK_MENU_LABEL, true, false);
-        generator.addMenuItem(NATIVE_MENU_ID, NATIVE_MENU_LABEL, true, false);
-        generator.addMenuItem(EXPORT_ALL_ID, EXPORT_ALL_LABEL, true, false);
+        var CROP_ALL_LABEL = "DA -> Export Cropped";
         generator.addMenuItem(CROP_ALL_ID, CROP_ALL_LABEL, true, false);
+
+        console.log(generator._menuState);
     }
 
     exports.init = init;
