@@ -24,6 +24,9 @@
 
 (function () {
 
+    var exec = require('child_process').exec;
+
+
     var fs = require('fs');
     var path = require('path');
 
@@ -32,6 +35,8 @@
     var logger = null;
 
     var PLUGIN_ID = require("./package.json").name;
+
+    var TEST_ID = PLUGIN_ID + "_test";
     var SK_MENU_ID = PLUGIN_ID;
     var NATIVE_MENU_ID = PLUGIN_ID + "_native";
     var EXPORT_ALL_ID = PLUGIN_ID + "_full";
@@ -59,6 +64,9 @@
         quality:32,
         format:"png"
     };
+
+    var oldFiles = {};
+    var execDelay = 0;
 
     function init(_generator, _config, _logger) {
     
@@ -133,22 +141,38 @@
             coordinateSystem = "spritekit";
             exportMetadata = false;
             cropToLayer = true;
+        }else if(menu.name == TEST_ID){
+
+            runTestCode();
+            return;
+
         }else{
-          return;
+            console.log("UNRECOGNIZED MENU ACTION: " + menu.name);
+            return;
         }
 
         handleExport();
     }
 
+    //put in anything that we're tinkering with here...
+    function runTestCode()
+    {
+
+        
+
+    }
+
     function handleExport()
     {
-        logger.info("STARTING " + coordinateSystem + " FOR " + activeDocumentId);
+        console.log("STARTING EXPORT");
+        console.log("   lastMenuClicked:" + lastMenuClicked);
+        console.log("   exportMetadata:" + exportMetadata);
+        console.log("   cropToLayer:" + cropToLayer);
         
         generator.getDocumentInfo(activeDocumentId).then(function(document) {
             
-            console.log(document);
+            //console.log(document);
             pixmapRenderSettings.ppi = document.resolution;
-
 
             var document_path = document.file;
             var folder = document_path.replace(".psd","");           
@@ -158,6 +182,8 @@
             activeDocumentRoot = folder;
 
             layersToExport = [];
+            oldFiles = {};
+            execDelay = 0;
 
             prepExportDirectory();
             updateMetadata(document);
@@ -168,6 +194,7 @@
     function render()
     {
         renderQueue = layersToExport.length;
+
         for(var i = 0; i < layersToExport.length; i++)
         {
             renderLayer(layersToExport[i][0], layersToExport[i][1]);
@@ -177,9 +204,8 @@
 
     function renderLayer(layer_name, layer_id)
     {
-
-
         generator.getPixmap(activeDocumentId, layer_id, pixmapSettings).then(function (pixmap) {
+            
             console.log("RENDERING " + activeDocumentRoot + "/" + layer_name + ".png");
     
             var local_settings = pixmapRenderSettings;
@@ -198,14 +224,90 @@
                 };
             }
 
-            generator.savePixmap(pixmap, activeDocumentRoot + "/" + layer_name + ".png", local_settings);
-            renderQueue -= 1;
-
-            if(renderQueue == 0)
+            var file_name = layer_name + ".png"
+            var old_path = oldFiles[file_name];
+            if(old_path == null)
             {
-                generator.alert("EXPORT COMPLETE: " + lastMenuClicked);
-            }
+                //not found! just save the new file
+                generator.savePixmap(pixmap, activeDocumentRoot + "/" + file_name, local_settings).then(function(new_file_name){
+                    renderComplete();
+                });
+            }else{
+                //write a temp file and compare it to our old one
+                delete oldFiles[file_name];
+                
+                var temp_path = activeDocumentRoot + "/" + file_name.replace(".png", "__TEMP.png");
+                generator.savePixmap(pixmap, temp_path, local_settings).then(function(new_file_name){
+                    //get the path for the bundled convert app
+                    var convert_path = generator._paths.convert.replace("convert.exe","");
+                    var command = "convert.exe " + temp_path + " " + old_path + ' -metric AE -compare -format "%[distortion]" info:';
+
+                    exec(command, {
+                            'cwd':convert_path
+                        },
+                        (error, stdout, stderr) => {
+                            if(error)
+                            {
+                                console.error(`exec error: ${error}`);
+                                //on error, overwrite with the new image
+                                fs.unlinkSync(old_path);
+                                fs.rename(temp_path, old_path, (err) => {
+                                    if (err)
+                                    {
+                                        throw err;  
+                                    } 
+                                });
+                            }else{
+                                //the stdout should be the number of pixel difference, or '0' for no change
+                                if(stdout == '0')
+                                {
+                                    //delete the new image!
+                                    fs.unlinkSync(temp_path);
+                                }else{
+                                    //delete the old image and replace with the new one!
+                                    fs.unlinkSync(old_path);
+                                    fs.rename(temp_path, old_path, (err) => {
+                                        if (err)
+                                        {
+                                            throw err;  
+                                        } 
+                                    });
+                                }
+                            
+                            }
+                        }
+                    );
+
+                    renderComplete();
+
+                });
+            };  
+
+            
         });
+    }
+
+    function renderComplete()
+    {
+        renderQueue -= 1;
+        if(renderQueue == 0)
+        {
+            finalCleanup();
+        }
+    }
+
+    function finalCleanup()
+    {
+        for (var key in oldFiles) 
+        {
+            if(key.indexOf("png") >= 0)
+            {
+                fs.unlinkSync(oldFiles[key]);    
+            }
+        }
+        oldFiles = {};        
+
+        generator.alert("EXPORT COMPLETE: " + lastMenuClicked);
     }
 
     function prepExportDirectory()
@@ -221,10 +323,14 @@
             }
             for (var i = 0; i < files.length; i++) 
             {
-                var filePath = activeDocumentRoot + '/' + files[i];
-                if (fs.statSync(filePath).isFile())
+                var file_path = activeDocumentRoot + '/' + files[i];
+                if (fs.statSync(file_path).isFile())
                 {
-                    fs.unlinkSync(filePath);    
+                    oldFiles[files[i]] = file_path;
+
+                    //prep no longer empties out the old folder -- instead we catalogue what's there
+                    //so we can diff the new exports against them and not confuse git in case there
+                    //are no actual pixel changes
                 }
             }
         }else{
@@ -250,10 +356,10 @@
         //the other two!
         if(exportMetadata)
         {
-            console.log("******************************************");
-            console.log(JSON.stringify(metadata));
-            printSceneGraph(metadata,0);
-            console.log("******************************************");
+            // console.log("******************************************");
+            // console.log(JSON.stringify(metadata));
+            // printSceneGraph(metadata,0);
+            // console.log("******************************************");
 
             var metadata_path = activeDocumentRoot + "/" + activeDocumentName + ".txt";
 
@@ -478,11 +584,7 @@
 
                 try
                 {
-                    var text_style = layer.text.textStyleRange[0].textStyle;
-            
-                    logger.info("++++++++++++++++++++++++++");
-                    logger.info(text_style);
-            
+                    var text_style = layer.text.textStyleRange[0].textStyle;            
                     text_font = text_style.fontName;
                     text_fontStyle = text_style.fontStyleName;
             
@@ -647,6 +749,9 @@
     //on the very last menu item we add!
     function initializeMenus()
     {
+        //var TEST_MENU_LABEL = "Test";
+        //quietlyAddMenuItem(TEST_ID, TEST_MENU_LABEL);
+
         var SK_MENU_LABEL = "DA -> Export SpriteKit";
         quietlyAddMenuItem(SK_MENU_ID, SK_MENU_LABEL);
         //generator.addMenuItem(SK_MENU_ID, SK_MENU_LABEL, true, false);            
@@ -665,7 +770,8 @@
         var CROP_ALL_LABEL = "DA -> Export Cropped";
         generator.addMenuItem(CROP_ALL_ID, CROP_ALL_LABEL, true, false);
 
-        console.log(generator._menuState);
+        console.log("MENUS INITIALIZED");
+        // console.log(generator._menuState);
     }
 
     exports.init = init;
