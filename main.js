@@ -25,6 +25,7 @@
 (function () {
 
     var exec = require('child_process').exec;
+    var resolve = require("path").resolve;
 
 
     var fs = require('fs');
@@ -49,6 +50,7 @@
 
     var activeDocumentId = null;
     var activeDocumentName = null;
+    var activeDocumentPath = null;
     var activeDocumentRoot = null;
 
     var layersToExport = [];
@@ -174,7 +176,7 @@
             //console.log(document);
             pixmapRenderSettings.ppi = document.resolution;
 
-            var document_path = document.file;
+            var document_path = resolve(document.file);
             var folder = document_path.replace(".psd","");           
             var name = path.basename(document_path);
             
@@ -237,21 +239,36 @@
                 delete oldFiles[file_name];
                 
                 var temp_path = activeDocumentRoot + "/" + file_name.replace(".png", "__TEMP.png");
+
                 generator.savePixmap(pixmap, temp_path, local_settings).then(function(new_file_name){
                     //get the path for the bundled convert app
                     var convert_path = generator._paths.convert.replace("convert.exe","");
                     var command = "convert.exe " + temp_path + " " + old_path + ' -metric AE -compare -format "%[distortion]" info:';
 
+                    if(process.platform == "darwin")
+                    {
+                        convert_path = generator._paths.convert.replace("convert","");
+                        var command = "convert " + temp_path + " " + old_path + ' -metric AE -compare -format "%[distortion]" info:';
+                    }
+
+                    //UNTESTED
+                    if(process.platform == "linux")
+                    {
+                        convert_path = "/usr/bin";
+                        var command = "convert " + temp_path + " " + old_path + ' -metric AE -compare -format "%[distortion]" info:';
+                    }
+
+
                     exec(command, {
                             'cwd':convert_path
                         },
-                        (error, stdout, stderr) => {
+                        function(error, stdout, stderr) {
                             if(error)
                             {
-                                console.error(`exec error: ${error}`);
+                                logger.error("exec error: " + error);
                                 //on error, overwrite with the new image
                                 fs.unlinkSync(old_path);
-                                fs.rename(temp_path, old_path, (err) => {
+                                fs.rename(temp_path, old_path, function(err) {
                                     if (err)
                                     {
                                         throw err;  
@@ -266,7 +283,7 @@
                                 }else{
                                     //delete the old image and replace with the new one!
                                     fs.unlinkSync(old_path);
-                                    fs.rename(temp_path, old_path, (err) => {
+                                    fs.rename(temp_path, old_path, function(err) {
                                         if (err)
                                         {
                                             throw err;  
