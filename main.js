@@ -501,9 +501,12 @@
             "type":null
         };
 
-        var center_rect = extractCenterAndSize(group.bounds);
+
+        //having image layers toggled visible/invisible can alter the container bounds...
+        //we don't want visibility to affect metadata, so for containers we always grab deep bounds
+        var center_rect = extractCenterAndSize(generator.getDeepBounds(group));
         meta_node["position_absolute"] = [center_rect[0], center_rect[1]];
-        meta_node["size"] = [center_rect[2], center_rect[3]];
+        meta_node["size"] = [center_rect[2], center_rect[3]];            
 
         if(CONTAINER_ALIASES.indexOf(group_type) >= 0)
         {
