@@ -1,7 +1,7 @@
 {
-  "name": "da-export",
-  "version": "2.0.0",
-  "description": "Container-based scene graph export (Bring Your Own Scene Graph).",
+  "name": "suit_exporter",
+  "version": "3.0.0",
+  "description": "Container-based scene graph export (used for Super UI Tools).",
   "main": "main.js",
   "generator-core-version": "~3",
   "repository": {

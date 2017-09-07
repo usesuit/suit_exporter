@@ -38,6 +38,7 @@
 
     var TEST_ID = PLUGIN_ID + "_test";
     var SK_MENU_ID = PLUGIN_ID;
+    var UNITY_MENU_ID = PLUGIN_ID + "_unity";
     var NATIVE_MENU_ID = PLUGIN_ID + "_native";
     var EXPORT_ALL_ID = PLUGIN_ID + "_full";
     var CROP_ALL_ID = PLUGIN_ID + "_cropped";
@@ -123,6 +124,11 @@
         if (menu.name == SK_MENU_ID) 
         {
             lastMenuClicked = "SpriteKit"
+            coordinateSystem = "spritekit";
+            exportMetadata = true;
+            cropToLayer = true;
+        }else if(menu.name == UNITY_MENU_ID){
+            lastMenuClicked = "Unity"
             coordinateSystem = "spritekit";
             exportMetadata = true;
             cropToLayer = true;
@@ -749,29 +755,26 @@
     //on the very last menu item we add!
     function initializeMenus()
     {
-        //var TEST_MENU_LABEL = "Test";
-        //quietlyAddMenuItem(TEST_ID, TEST_MENU_LABEL);
+        //exact same as SK, just removing menu ambiguity
+        var UNITY_MENU_LABEL = "SUIT: Export for Unity";
+        quietlyAddMenuItem(UNITY_MENU_ID, UNITY_MENU_LABEL);
 
-        var SK_MENU_LABEL = "DA -> Export SpriteKit";
+        var SK_MENU_LABEL = "SUIT: Export for SpriteKit";
         quietlyAddMenuItem(SK_MENU_ID, SK_MENU_LABEL);
-        //generator.addMenuItem(SK_MENU_ID, SK_MENU_LABEL, true, false);            
 
         //export all layers/containers for native UI
-        var NATIVE_MENU_LABEL = "DA -> Export Native UI";
+        var NATIVE_MENU_LABEL = "SUIT: Export Native UI";
         quietlyAddMenuItem(NATIVE_MENU_ID, NATIVE_MENU_LABEL);
-        //generator.addMenuItem(NATIVE_MENU_ID, NATIVE_MENU_LABEL, true, false);
 
         //export all layers with no metadata and no cropping
-        var EXPORT_ALL_LABEL = "DA -> Export Full Sized";
+        var EXPORT_ALL_LABEL = "SUIT: Export Full Sized Images";
         quietlyAddMenuItem(EXPORT_ALL_ID, EXPORT_ALL_LABEL);
-        //generator.addMenuItem(EXPORT_ALL_ID, EXPORT_ALL_LABEL, true, false);
 
         //export all layers with no metadata and no cropping
-        var CROP_ALL_LABEL = "DA -> Export Cropped";
+        var CROP_ALL_LABEL = "SUIT: Export Cropped Images";
         generator.addMenuItem(CROP_ALL_ID, CROP_ALL_LABEL, true, false);
 
         console.log("MENUS INITIALIZED");
-        // console.log(generator._menuState);
     }
 
     exports.init = init;
