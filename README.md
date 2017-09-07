@@ -1,32 +1,33 @@
-Bring Your Own Scene Graph
+SUIT Exporter
 ===============================================
-This plugin for Adobe generator is meant as a UI placement tool for game development. We're currently using it to build games in SpriteKit and Unity (with Futile), but theoretically this data could be used in any engine with a node-based scene graph.
+This plugin for Adobe generator is meant as a UI placement tool for game/app development. The tool exports images and metadata from a PSD using as few naming conventions as possible. If your environment supports nodes/containers, images/sprites, and dynamic textfields of some kind, it's pretty straightforward to add support. In prior versions we maintained a whitelist of which Photoshop groups to export (container, progress, scale9, btn, scalebtn, etc), but we're in the process of moving away from that and more towards general purpose export. The runtime (Unity, SpriteKit, etc) should dictate what it wants to do with the metadata, while the exporter JUST barfs out images and metadata.
 
 Install
 ===============================================
-download the zip file and drop it into your generators folder
+download the zip file and drop the suit_exporter folder into your generators folder
 * **Mac**: /Applications/Adobe Photoshop CC 2015/Plug-ins/Generator
 * **Windows**: C:\Program Files\Adobe\Adobe Photoshop CC 2017\Plug-ins\Generator
 
 Usage
 ===============================================
-Unlike the default image exporter plugin where you must name each layer with .png (or .jpg or whatever) to export it, we assume that you want every LAYER in the PSD to be exported as an individual image. We work with PNGs, so I've removed all other options to simplify naming. 
+Unlike the default image exporter plugin where you must name each layer with .png (or .jpg or whatever) to export it, we assume that you want every LAYER in the PSD to be exported as an individual image. We work with PNGs, so I've removed all other options to simplify naming.
 
 To prevent a layer from being exported (or the contents of a group), simply start the name of the layer/group with "guide".
 
-By default, Photoshop groups are purely organizational for your artists in photoshop. If you want a group to be exported as a container node, it must have a specific name format:
+Though we no longer enforce specific container naming conventions at the PSD level, here are some handy naming conventions that play nice with most of our internal runtimes:
 
-Supported Containers (Photoshop Groups)
+Recommended Container (Photoshop Group) Naming Conventions 
 -------------
+* **(no prefix)** - a node which doesn't match any of the whitelisted prefixes below is assumed to be for organizational purposes only and "flattened" -- its children are added to the parent as if the Group didn't exist
 * **container** ("container_header") - a node which contains other nodes, but no content of its own
-* **progress** ("progress_health") - an alias for container (see runtime notes)
-* **scale9** ("scale9_popup_bg") - an alias for container (see runtime notes)
-* **btn** ("btn_start") - an alias for container (see runtime notes)
-* **scalebtn** ("scalebtn_start") - an alias for container (see runtime notes)
-* **tab** ("tab_options") - an alias for container (see runtime notes)
+* **progress** ("progress_health") - a container that contains assets for building a progress bar
+* **scale9** ("scale9_popup_bg") - a container that contains assets for a scale9 asset
+* **btn** ("btn_start") - a container that contains assets for a button (though each runtime might expect different states)
+* **scalebtn** ("scalebtn_start") - a container that contains assets for a scale button (a button whose down/up/over states are done programatically with scaling)
+* **tab** ("tab_options") - a generic container with multiple states, where only one state is shown at a time
 * **guide** ("guide_stuff") - a photoshop group which will have its contents ignored by the exporter
 
-Supported Nodes (Photoshop Layers)
+Recommended Node (Photoshop Layer) Naming Conventions
 ------------------------------------
 * **image** (e.g. "my_image" or "thingy" or "health_bg") -- any photoshop layer which does not conform to one of the "special" layer types will simply be exported as an image (cropped to the bounds of the layer)
 * **text** (e.g. "text_points") -- any type layer prefixed with "text_" will be exported as pure metadata. i've only tested this with single-line text, and only the following properties are exported:
@@ -42,27 +43,25 @@ Supported Nodes (Photoshop Layers)
 
 Runtime Notes
 ===============================================
-The data that comes out of this plugin is meant to be framework and engine-independent, which means YOU the programmer are responsible for providing a scene graph.
+The data that comes out of this plugin is meant to be framework and engine-independent, which means YOU the programmer are responsible for providing a scene graph. In our own implementations, we've found it convenient to have some "magic" extra UI objects that get automagically wired up. You are NOT REQUIRED to use these naming conventions. See each specific runtime for details about the naming conventions and child structure that are expected. The idea is that the provided controls are a good starting point and that your game/app can easily extend it for custom controls.
 
-In our own implementations, we've found it convenient to have some "magic" extra UI objects that get automagically wired up. You are NOT REQUIRED to use these naming conventions (you can simply use "container_", "text_", and the default to export only containers/labels/images.
+As an example, for SpriteKit (where there are no hover states) we might prefix all our assets in the following way:
 
-The "extras" that we implement in our own games are:
+* btn_start (photoshop group)
+** text_start_up (photoshop text layer)
+** start_bkg_up (photoshop art layer)
+** text_start_down (photoshop text layer)
+** start_bkg_down (photoshop art layer)
 
-* **btn** (container) -- a button container. the "up" state of the button will be any child of this container that ends with "_up" and the "down" state will be any child that ends with "_down." We mostly target mobile, but you could conceivably do the same thing with "_hover". You can mix and match images and labels, but be aware that you need to update ALL the textfields associated with a button if it has dynamic text.
-* **scalebtn** (container) -- the exact same as a btn container, but with only one set of content. "up" is the contents scaled to 100%, "down" is the contents scaled to 90%. "hover" is the contents scaled to 105%. like btn, you can mix and match images/text.
-* **scalebtn** (image) -- if you name an image "scalebtn_NAME", it will do the same as the container-based scale button, but you don't need to explicitly provide the surrounding container. quick & easy!
-* **progress** (container) -- given "progress_NAME", looks for two children named "NAME_fill" and "NAME_bkg" and turns it into a progress bar
-* **tab** (container) -- kind of like a button container but with a lot more states. for each container within the tab, parse out the LAST segment and associate all of the contents of that container/object with that tab state. for example a tab group might have subcontainers called:
-  * btn_purchase_off   (i.e. a purchase button where you don't have enough coins)
-  * btn_purchase_on (i.e. an active button)
-  * btn_purchase_locked (i.e. a button where you haven't unlocked the option to buy yet)
-* **scale9** (container) -- given "scale9_NAME", looks for "NAME_1" through "NAME_9" (going across horizontally) to create a scale9 shape. "NAME_5" is optional (you can use scale9 to make just a frame)
-* **flipX** (image) -- we often have symmetrical assets. to save space in our texture atlases, we reuse the same image but prefix one of them with flipX. when added to the scene graph these items will have xScale = -1
+In our SpriteKit button, we set it so any child postfixed with "_up" gets shown in the "up" state and any child postfixed with "_down" gets shown in the "down" state.
+
+Another example would be "flipX" -- for perfectly symmetrical or mirrored sprites, it can often save atlas space to render 1/2 of the item and flip the second piece. By convention in our runtimes, any sprite named "flipX_spritename" will be displayed as normal but with an x-scale set to -1.
 
 
 
 Implementations
 ===============================================
 * SpriteKit/Native iOS (in Swift) - [https://github.com/DragonArmy/DACore](https://github.com/DragonArmy/DACore)
+* Unity + Canvas UI (in C#) - [https://github.com/usesuit/suit_unity](https://github.com/usesuit/suit_unity)
 * Unity + Futile (in C#) - TODO
 * HTML5 (via Pixi.js) - TODO
