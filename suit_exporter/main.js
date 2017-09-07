@@ -430,7 +430,9 @@
             {
                 meta_node = processGroup(layers[i]);
 
-                //if it was an organizational group, just add the nodes!
+                //leaving legacy support for flattened nodes in for now, but
+                //the idea is that the runtimes should handle this now and not 
+                //the exporter
                 if(meta_node != null && meta_node.type == "flatten")
                 {
                     for(var j = 0; j < meta_node.children.length; j++)
@@ -511,13 +513,8 @@
         var center_rect = extractCenterAndSize(generator.getDeepBounds(group));
         meta_node["position_absolute"] = [center_rect[0], center_rect[1]];
         meta_node["size"] = [center_rect[2], center_rect[3]];            
+        meta_node["type"] = "container";
 
-        if(group_type == "flatten")
-        {
-            meta_node.type = "flatten";
-        }else{
-            meta_node.type = "container";
-        }
 
         meta_node["children"] = convertLayersToChildren(group.layers, meta_node);
 
