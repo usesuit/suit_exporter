@@ -61,7 +61,8 @@ Another example would be "flipX" -- for perfectly symmetrical or mirrored sprite
 
 Implementations
 ===============================================
-* SpriteKit/Native iOS (in Swift) - [https://github.com/DragonArmy/DACore](https://github.com/DragonArmy/DACore)
 * Unity + Canvas UI (in C#) - [https://github.com/usesuit/suit_unity](https://github.com/usesuit/suit_unity)
-* Unity + Futile (in C#) - TODO
+* iOS + SpriteKit (in Swift) - TODO [https://github.com/DragonArmy/DACore](https://github.com/DragonArmy/DACore)
+* iOS + UIKit (in Swift) - TODO [https://github.com/DragonArmy/DACore](https://github.com/DragonArmy/DACore)
 * HTML5 (via Pixi.js) - TODO
+* Unity + Futile (in C#) - TODO (but also kind of deprecated)
