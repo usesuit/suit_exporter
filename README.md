@@ -48,10 +48,10 @@ The data that comes out of this plugin is meant to be framework and engine-indep
 As an example, for SpriteKit (where there are no hover states) we might prefix all our assets in the following way:
 
 * btn_start (photoshop group)
-** text_start_up (photoshop text layer)
-** start_bkg_up (photoshop art layer)
-** text_start_down (photoshop text layer)
-** start_bkg_down (photoshop art layer)
+	* text_start_up (photoshop text layer)
+	* start_bkg_up (photoshop art layer)
+	* text_start_down (photoshop text layer)
+	* start_bkg_down (photoshop art layer)
 
 In our SpriteKit button, we set it so any child postfixed with "_up" gets shown in the "up" state and any child postfixed with "_down" gets shown in the "down" state.
 
