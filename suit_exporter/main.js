@@ -498,8 +498,6 @@
         if(group.name.indexOf("guide") == 0) return null;
 
         var group_name = group.name.replace(/ /g, "_");
-
-        var CONTAINER_ALIASES = ["container", "progress", "scale9", "btn", "scalebtn", "tab", "paragraph"];
         var group_type = group_name.split("_")[0];
 
         var meta_node = {
@@ -514,11 +512,11 @@
         meta_node["position_absolute"] = [center_rect[0], center_rect[1]];
         meta_node["size"] = [center_rect[2], center_rect[3]];            
 
-        if(CONTAINER_ALIASES.indexOf(group_type) >= 0)
+        if(group_type == "flatten")
         {
-            meta_node.type = "container";
-        }else{
             meta_node.type = "flatten";
+        }else{
+            meta_node.type = "container";
         }
 
         meta_node["children"] = convertLayersToChildren(group.layers, meta_node);
