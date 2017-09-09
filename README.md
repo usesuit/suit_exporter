@@ -10,35 +10,20 @@ download the zip file and drop the suit_exporter folder into your generators fol
 
 Usage
 ===============================================
-Unlike the default image exporter plugin where you must name each layer with .png (or .jpg or whatever) to export it, we assume that you want every LAYER in the PSD to be exported as an individual image. We work with PNGs, so I've removed all other options to simplify naming.
+Unlike the default image exporter plugin where you must name each layer with .png (or .jpg or whatever) to export it, we assume that you want every LAYER in the PSD to be exported as an individual image/container/text. We work with PNGs, so I've removed all other options to simplify naming.
 
-To prevent a layer from being exported (or the contents of a group), simply start the name of the layer/group with "guide".
-
-Though we no longer enforce specific container naming conventions at the PSD level, here are some handy naming conventions that play nice with most of our internal runtimes:
-
-Recommended Container (Photoshop Group) Naming Conventions 
+NODE TYPES
 -------------
-* **(no prefix)** - a node which doesn't match any of the whitelisted prefixes below is assumed to be for organizational purposes only and "flattened" -- its children are added to the parent as if the Group didn't exist
-* **container** ("container_header") - a node which contains other nodes, but no content of its own
-* **progress** ("progress_health") - a container that contains assets for building a progress bar
-* **scale9** ("scale9_popup_bg") - a container that contains assets for a scale9 asset
-* **btn** ("btn_start") - a container that contains assets for a button (though each runtime might expect different states)
-* **scalebtn** ("scalebtn_start") - a container that contains assets for a scale button (a button whose down/up/over states are done programatically with scaling)
-* **tab** ("tab_options") - a generic container with multiple states, where only one state is shown at a time
-* **guide** ("guide_stuff") - a photoshop group which will have its contents ignored by the exporter
+* container (Photoshop Group)
+* image (Photoshop layer without text)
+* text (Photoshop layer with text)
 
-Recommended Node (Photoshop Layer) Naming Conventions
-------------------------------------
-* **image** (e.g. "my_image" or "thingy" or "health_bg") -- any photoshop layer which does not conform to one of the "special" layer types will simply be exported as an image (cropped to the bounds of the layer)
-* **text** (e.g. "text_points") -- any type layer prefixed with "text_" will be exported as pure metadata. i've only tested this with single-line text, and only the following properties are exported:
-  - font
-  - fontSize (in points)
-  - text (contents of the text field)
-  - justification ( left | center | right )
-  - color (hex, no alpha)
-* **guide** (e.g. "guide_somelayer") -- any layer you dont want exported
-* **placeholder** (e.g. "placeholder_thumbnail") -- exports simply the center and size of the layer in metadata (no image). see runtime notes
-* **pivot** (e.g. "pivot_somecontainer") -- when placed inside of an exported container, a pivot layer sets the parent container's pivot to the center of the pivot (we usually use a 4x4 pink box). see runtime notes, this is useful for scale buttons
+SPECIAL PREFIXES
+-------------
+* "guide_": any layer/group that begins with group will be skipped by the exporter (including children for groups)
+* "alias_": any image layer that begins with "alias_" will export metadata only. this can be useful for duplicate sprites in a sprite atlas. for example, a sprite layer named "cloud" and "alias_cloud" would create two sprite in different positions at runtime, but only one PNG exported. most texture atlas systems will automatically de-dupe identical sprite anyway, but SpriteKit in particular suffers from performance degradation when an atlas contains many entries
+* "placeholder_": an image layer that begins with "placeholder_" will not be exported. instead, we simply export the position and bounds (within the parent container). this is useful for giving yourself named "locations" in code for dynamic placement and sizing of objects later (for example, a user portrait where we want the portrait in a complex node hierarchy but don't know ahead of time what image will go there)
+* "pivot_": an image layer that begins with "pivot_" will not be exported (typically we use a 2x2 or 4x4 pink rect). instead, the center of the pivot layer will be exported as the pivot of the surrounding container. this allows for some simple FK chains, but we most often use it for scale buttons that are anchored to one side of the screen (as they scale up/down, they can scale towards the outside edge instead of their center)
 
 
 Runtime Notes
@@ -53,7 +38,7 @@ As an example, for SpriteKit (where there are no hover states) we might prefix a
 	* text_start_down (photoshop text layer)
 	* start_bkg_down (photoshop art layer)
 
-In our SpriteKit button, we set it so any child postfixed with "_up" gets shown in the "up" state and any child postfixed with "_down" gets shown in the "down" state.
+In Swifte, we can automatically turn any container layer that starts with "btn_" into a button object and use the postfixes on the children to determine which assets should be shown in which states.
 
 Another example would be "flipX" -- for perfectly symmetrical or mirrored sprites, it can often save atlas space to render 1/2 of the item and flip the second piece. By convention in our runtimes, any sprite named "flipX_spritename" will be displayed as normal but with an x-scale set to -1.
 
