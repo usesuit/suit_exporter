@@ -347,7 +347,6 @@
                 if (fs.statSync(file_path).isFile())
                 {
                     oldFiles[files[i]] = file_path;
-                    console.log("OLD FILE: " + file_path);
 
                     //prep no longer empties out the old folder -- instead we catalogue what's there
                     //so we can diff the new exports against them and not confuse git in case there
@@ -576,145 +575,142 @@
         var size = [center_rect[2], center_rect[3]];
 
 
-        if(layer.name.indexOf("text") == 0)
+        if(layer.text != null)
         {
-            if(layer.text != null)
+            //splitting these out just in case I need to debug
+            var default_text = layer.text.textKey;
+
+            //DEFAULT VALUES
+            var text_color = "000000";
+            var text_font = "Arial";
+            var text_fontStyle = "Black";
+            var text_justification = "left"
+            var text_size = 24;
+            var alpha = 1.0;
+      
+
+            if(layer.blendOptions != null)
             {
-                //splitting these out just in case I need to debug
-                var default_text = layer.text.textKey;
-
-                //DEFAULT VALUES
-                var text_color = "000000";
-                var text_font = "Arial";
-                var text_fontStyle = "Black";
-                var text_justification = "left"
-                var text_size = 24;
-                var alpha = 1.0;
-          
-
-                if(layer.blendOptions != null)
+                if(layer.blendOptions.hasOwnProperty("opacity"))
                 {
-                    if(layer.blendOptions.hasOwnProperty("opacity"))
-                    {
-                        alpha = layer.blendOptions.opacity.value / 100.0;
-                    }
+                    alpha = layer.blendOptions.opacity.value / 100.0;
                 }
-                    
+            }
+                
 
+            try
+            {
+                var text_style = layer.text.textStyleRange[0].textStyle;            
+                text_font = text_style.fontName;
+                text_fontStyle = text_style.fontStyleName;
+        
+                if(text_style.hasOwnProperty("size"))
+                {
+                    if(text_style.size.hasOwnProperty("value"))
+                    {
+                        text_size = text_style.size.value;    
+                    }else{
+                        text_size = text_style.size;
+                    }
+                }else{
+                    logger.warn("TEXT STYLE HAS NO SIZE");
+                    logger.warn(text_style);
+                }
+        
+                var red_value = 0;
+                var green_value = 0;
+                var blue_value = 0;
+        
+                if(text_style.color.red != undefined) red_value = text_style.color.red;
+                if(text_style.color.green != undefined) green_value = text_style.color.green;
+                if(text_style.color.blue != undefined) blue_value = text_style.color.blue;
+        
+                var red = Math.round(red_value).toString(16);
+                var green = Math.round(green_value).toString(16);
+                var blue = Math.round(blue_value).toString(16);
+        
+                if(red.length < 2) red = "0" + red;
+                if(green.length < 2) green = "0" + green;
+                if(blue.length < 2) blue = "0" + blue;
+
+                text_color = red + green + blue;
+        
+            }catch(e){
+                logger.error("ERROR PARSING FONT STYLE -- " + e);
+                logger.error(layer.text.textKey);
+                logger.error(layer.text.textStyleRange);
+            }
+
+            if(layer.text.paragraphStyleRange == null)
+            {
+                logger.warn("PARAGRAPH STYLE = null");
+            }else{
                 try
                 {
-                    var text_style = layer.text.textStyleRange[0].textStyle;            
-                    text_font = text_style.fontName;
-                    text_fontStyle = text_style.fontStyleName;
-            
-                    if(text_style.hasOwnProperty("size"))
-                    {
-                        if(text_style.size.hasOwnProperty("value"))
-                        {
-                            text_size = text_style.size.value;    
-                        }else{
-                            text_size = text_style.size;
-                        }
-                    }else{
-                        logger.warn("TEXT STYLE HAS NO SIZE");
-                        logger.warn(text_style);
-                    }
-            
-                    var red_value = 0;
-                    var green_value = 0;
-                    var blue_value = 0;
-            
-                    if(text_style.color.red != undefined) red_value = text_style.color.red;
-                    if(text_style.color.green != undefined) green_value = text_style.color.green;
-                    if(text_style.color.blue != undefined) blue_value = text_style.color.blue;
-            
-                    var red = Math.round(red_value).toString(16);
-                    var green = Math.round(green_value).toString(16);
-                    var blue = Math.round(blue_value).toString(16);
-            
-                    if(red.length < 2) red = "0" + red;
-                    if(green.length < 2) green = "0" + green;
-                    if(blue.length < 2) blue = "0" + blue;
+                    var par_style = layer.text.paragraphStyleRange[0].paragraphStyle;
+                    text_justification = par_style.align;
 
-                    text_color = red + green + blue;
-            
+                    switch(text_justification)
+                    {
+                        case "left":
+                            //adjust position for left align
+                            if(coordinateSystem == "spritekit")
+                            {
+                                position[0] = position[0] - size[0]/2;    
+                            }else if(coordinateSystem == "native_ui"){
+                                //already left aligned by default!
+                            }else{
+                                logger.warn("ERROR: DONT KNOW HOW TO PROCESS coordinateSystem " + coordinateSystem);
+                            }
+
+                            break;
+                        case "right":
+                            if(coordinateSystem == "spritekit")
+                            {
+                                position[0] = position[0] + size[0]/2;
+                            }else if(coordinateSystem == "native_ui"){
+                                position[0] = position[0] + size[0];
+                            }else{
+                                logger.warn("ERROR: DONT KNOW HOW TO PROCESS coordinateSystem " + coordinateSystem);
+                            }
+
+                            break;
+                        case "center":
+                            if(coordinateSystem == "spritekit")
+                            {
+                                //center aligned by default!
+                            }else if(coordinateSystem == "native_ui"){
+                                position[0] = position[0] + size[0]/2;
+                            }else{
+                                logger.warn("ERROR: DONT KNOW HOW TO PROCESS coordinateSystem " + coordinateSystem);
+                            }
+                            break;
+                    }
+
                 }catch(e){
-                    logger.error("ERROR PARSING FONT STYLE -- " + e);
-                    logger.error(layer.text.textKey);
-                    logger.error(layer.text.textStyleRange);
+                    logger.error("ERROR PARSING PARAGRAPH STYLE -- " + e);
+                    logger.error(layer.text.paragraphStyleRange[0]);
                 }
-
-                if(layer.text.paragraphStyleRange == null)
-                {
-                    logger.warn("PARAGRAPH STYLE = null");
-                }else{
-                    try
-                    {
-                        var par_style = layer.text.paragraphStyleRange[0].paragraphStyle;
-                        text_justification = par_style.align;
-
-                        switch(text_justification)
-                        {
-                            case "left":
-                                //adjust position for left align
-                                if(coordinateSystem == "spritekit")
-                                {
-                                    position[0] = position[0] - size[0]/2;    
-                                }else if(coordinateSystem == "native_ui"){
-                                    //already left aligned by default!
-                                }else{
-                                    logger.warn("ERROR: DONT KNOW HOW TO PROCESS coordinateSystem " + coordinateSystem);
-                                }
-
-                                break;
-                            case "right":
-                                if(coordinateSystem == "spritekit")
-                                {
-                                    position[0] = position[0] + size[0]/2;
-                                }else if(coordinateSystem == "native_ui"){
-                                    position[0] = position[0] + size[0];
-                                }else{
-                                    logger.warn("ERROR: DONT KNOW HOW TO PROCESS coordinateSystem " + coordinateSystem);
-                                }
-
-                                break;
-                            case "center":
-                                if(coordinateSystem == "spritekit")
-                                {
-                                    //center aligned by default!
-                                }else if(coordinateSystem == "native_ui"){
-                                    position[0] = position[0] + size[0]/2;
-                                }else{
-                                    logger.warn("ERROR: DONT KNOW HOW TO PROCESS coordinateSystem " + coordinateSystem);
-                                }
-                                break;
-                        }
-
-                    }catch(e){
-                        logger.error("ERROR PARSING PARAGRAPH STYLE -- " + e);
-                        logger.error(layer.text.paragraphStyleRange[0]);
-                    }
-                }
-
-                if(layer.text.transform)
-                {
-                    text_size = text_size * layer.text.transform.xx;
-                }
-
-
-                return {
-                    "name" : layer.name.substr(5).replace(/ /g,"_"),
-                    "type" : "text",
-                    "position_absolute" : position,
-                    "size": size,
-                    "color":text_color,
-                    "font":text_font + "-" + text_fontStyle,
-                    "justification":text_justification,
-                    "fontSize":text_size,
-                    "text": default_text,
-                    "alpha":alpha
-                };
             }
+
+            if(layer.text.transform)
+            {
+                text_size = text_size * layer.text.transform.xx;
+            }
+
+
+            return {
+                "name" : layer.name.substr(5).replace(/ /g,"_"),
+                "type" : "text",
+                "position_absolute" : position,
+                "size": size,
+                "color":text_color,
+                "font":text_font + "-" + text_fontStyle,
+                "justification":text_justification,
+                "fontSize":text_size,
+                "text": default_text,
+                "alpha":alpha
+            };
         }
 
         if(layer.name.indexOf("pivot") == 0)
@@ -726,12 +722,6 @@
         {
             return { "name" : layer.name.substr(12).replace(/ /g,"_"), "type" : "placeholder", "position_absolute":position, "size":size }
         }
-
-        //tile_NAMEOFTEXTURE is a special kind of placeholder where we look for an image named NAMEOFTEXTURE and tile it horizontally & vertically to fill the rect
-        if(layer.name.indexOf("tile") == 0)
-        {
-            return { "name" : layer.name.replace(/ /g,"_"), "type" : "placeholder", "position_absolute":position, "size":size }
-        }
       
         if(layer.name.indexOf("alias") == 0)
         {
@@ -739,8 +729,7 @@
             return { "name" : layer.name.substr(6).replace(/ /g,"_"), "type" : "image", "position_absolute" : position };
         }
       
-        //IMAGE
-        //also need to mark this as a render layer!
+        //Otherwise just a regular image
         layersToExport.push([layer.name.replace(/ /g,"_"), layer.id]);
         return { "name" : layer.name.replace(/ /g,"_"), "type" : "image", "position_absolute" : position, "size":size };
     }
