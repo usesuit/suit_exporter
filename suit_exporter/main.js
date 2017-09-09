@@ -700,7 +700,7 @@
 
 
             return {
-                "name" : layer.name.substr(5).replace(/ /g,"_"),
+                "name" : layer.replace(/ /g,"_"),
                 "type" : "text",
                 "position_absolute" : position,
                 "size": size,
