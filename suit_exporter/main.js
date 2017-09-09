@@ -76,23 +76,15 @@
         generator = _generator;
         config = _config;
         logger = _logger;
-        logger.info("REALLY intializing DA-Export with config %j", _config);
+        console.log("REALLY intializing DA-Export with config %j", _config);
 
         initializeMenus();
-
 
         generator.onPhotoshopEvent("currentDocumentChanged", handleActiveDocumentChanged);
         generator.onPhotoshopEvent("generatorMenuChanged", handleMenuClicked);
 
-        //prefill the current document if there is one
         generator.evaluateJSXString("app.activeDocument.id").then(function(id){
             handleActiveDocumentChanged(id);
-
-            //useful for testing a file that's open
-            // logger.info("RUNNING SPRITEKIT EXPORT");
-            // coordinateSystem = "spritekit";
-            // exportMetadata = true;
-            // handleExport();
         });
     }
     
@@ -323,9 +315,11 @@
     {
         for (var key in oldFiles) 
         {
-            if(key.indexOf("png") >= 0)
+            //make sure we only kill files that end with .png
+            //so we don't squash .png.meta files in Unity
+            if(key.indexOf(".png") == key.length - 4)
             {
-                fs.unlinkSync(oldFiles[key]);    
+                fs.unlinkSync(oldFiles[key]);
             }
         }
         oldFiles = {};        
@@ -337,19 +331,23 @@
     {
         if (fs.existsSync(activeDocumentRoot)) 
         {
+            console.log("SYNC " + activeDocumentRoot);
+            var files = [];
             try 
             { 
-                var files = fs.readdirSync(activeDocumentRoot); 
+                files = fs.readdirSync(activeDocumentRoot); 
             }catch(e) {
-                logger.warn("UNABLE TO GET FILES IN " + activeDocumentRoot);
+                console.log("UNABLE TO GET FILES IN " + activeDocumentRoot);
                 return; 
             }
+            console.log()
             for (var i = 0; i < files.length; i++) 
             {
                 var file_path = activeDocumentRoot + '/' + files[i];
                 if (fs.statSync(file_path).isFile())
                 {
                     oldFiles[files[i]] = file_path;
+                    console.log("OLD FILE: " + file_path);
 
                     //prep no longer empties out the old folder -- instead we catalogue what's there
                     //so we can diff the new exports against them and not confuse git in case there
@@ -357,6 +355,7 @@
                 }
             }
         }else{
+            console.log("CREATE " + activeDocumentRoot);
             fs.mkdirSync(activeDocumentRoot);
         }
     }
@@ -456,7 +455,7 @@
                 meta_node = processLayer(layers[i]);
             }
 
-            //don't assume we got a node! might be a guide container or our options layer
+            //don't assume we got a node! might be a guide container
             if(meta_node == null)
             {
                 continue;
@@ -493,7 +492,7 @@
         return children;
     }
 
-    //GUIDE, CONTAINER, (nothing), PROGRESS, SCALE9, BTN, SCALEBTN, TAB
+    //GUIDE, CONTAINER
     function processGroup(group) 
     {
         //ignore anything in a guide folder
@@ -560,12 +559,11 @@
         }
     }
 
-    //GUIDE, OPTIONS, TEXT, PIVOT, PLACEHOLDER, TILE, IMAGE, SCALEBTN
+    //GUIDE, TEXT, PIVOT, PLACEHOLDER, IMAGE
     function processLayer(layer) {
         var layerName = layer.name;
 
         if(layer.name.indexOf("guide") == 0) return null;
-        if(layer.name == "options") return null;
 
         var center_rect = extractCenterAndSize(layer.bounds);
       
@@ -741,7 +739,7 @@
             return { "name" : layer.name.substr(6).replace(/ /g,"_"), "type" : "image", "position_absolute" : position };
         }
       
-        //IMAGE OR SCALEBTN
+        //IMAGE
         //also need to mark this as a render layer!
         layersToExport.push([layer.name.replace(/ /g,"_"), layer.id]);
         return { "name" : layer.name.replace(/ /g,"_"), "type" : "image", "position_absolute" : position, "size":size };
