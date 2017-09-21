@@ -38,7 +38,7 @@ As an example, for SpriteKit (where there are no hover states) we might prefix a
 	* text_start_down (photoshop text layer)
 	* start_bkg_down (photoshop art layer)
 
-In Swifte, we can automatically turn any container layer that starts with "btn_" into a button object and use the postfixes on the children to determine which assets should be shown in which states.
+In Swift, we can automatically turn any container layer that starts with "btn_" into a button object and use the postfixes on the children to determine which assets should be shown in which states.
 
 Another example would be "flipX" -- for perfectly symmetrical or mirrored sprites, it can often save atlas space to render 1/2 of the item and flip the second piece. By convention in our runtimes, any sprite named "flipX_spritename" will be displayed as normal but with an x-scale set to -1.
 
