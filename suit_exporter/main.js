@@ -725,7 +725,7 @@
         if(layer.name.indexOf("alias") == 0)
         {
             //trim off the "alias_" and the metadata points to a pre-existing image!
-            return { "name" : layer.name.substr(6).replace(/ /g,"_"), "type" : "image", "position_absolute" : position };
+            return { "name" : layer.name.substr(6).replace(/ /g,"_"), "type" : "image", "position_absolute" : position, "size":size };
         }
       
         //Otherwise just a regular image
