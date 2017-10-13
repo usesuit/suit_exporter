@@ -588,13 +588,6 @@
             var text_size = 24;
             var alpha = 1.0;
 
-            //use the bigger of text bounds and current size
-            size = [
-                Math.max(size[0], layer.text.bounds.right - layer.text.bounds.left), 
-                Math.max(size[1], layer.text.bounds.bottom - layer.text.bounds.top)
-            ];
-      
-
             if(layer.blendOptions != null)
             {
                 if(layer.blendOptions.hasOwnProperty("opacity"))
