@@ -193,7 +193,13 @@
 
     function render()
     {
+        console.log("RENDERING");
         renderQueue = layersToExport.length;
+        
+        for(var i = 0; i < layersToExport.length; i++)
+        {
+            console.log(i + ": " + layersToExport[i][0]);
+        }
 
         for(var i = 0; i < layersToExport.length; i++)
         {
@@ -305,6 +311,7 @@
     function renderComplete()
     {
         renderQueue -= 1;
+        console.log("RENDER QUEUE: " + renderQueue);
         if(renderQueue == 0)
         {
             finalCleanup();
@@ -313,12 +320,14 @@
 
     function finalCleanup()
     {
+        console.log("CLEAN UP " + Object.keys(oldFiles).length);
         for (var key in oldFiles) 
         {
             //make sure we only kill files that end with .png
             //so we don't squash .png.meta files in Unity
             if(key.indexOf(".png") == key.length - 4)
             {
+                console.log("REMOVING " + key);
                 fs.unlinkSync(oldFiles[key]);
             }
         }
@@ -346,6 +355,7 @@
                 var file_path = activeDocumentRoot + '/' + files[i];
                 if (fs.statSync(file_path).isFile())
                 {
+                    console.log("OLD FILE: " + files[i]);
                     oldFiles[files[i]] = file_path;
 
                     //prep no longer empties out the old folder -- instead we catalogue what's there
